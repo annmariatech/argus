@@ -66,6 +66,8 @@ function App() {
     if (fileInput.current) fileInput.current.value = "";
   }
 
+  const verdictClass = result?.verdict ? result.verdict.toLowerCase() : "";
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -242,8 +244,9 @@ function App() {
                 <div className="step-label">STEP 02</div>
                 <h2>Security assessment</h2>
               </div>
-              <span className="live-badge">
-                <span /> API
+              <span className={`live-badge ${result ? "result-ready" : ""}`}>
+                <span />
+                {result ? "RESULT READY" : "READY TO SCAN"}
               </span>
             </div>
 
@@ -287,7 +290,7 @@ function App() {
               </div>
             ) : (
               <div className="result-content">
-                <div className="verdict-card">
+                <div className={`verdict-card verdict-${verdictClass}`}>
                   <div className="verdict-symbol">!</div>
 
                   <div>

@@ -879,3 +879,78 @@
     align-items: flex-start;
   }
 }
+
+
+/* Argus dynamic verdict styling */
+.verdict-card {
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease;
+}
+
+.verdict-card.verdict-safe {
+  background: #f0faf4;
+  border-color: #b8e6c9;
+}
+
+.verdict-card.verdict-safe .verdict-symbol {
+  background: #d7f5e2;
+  color: #167343;
+}
+
+.verdict-card.verdict-safe .verdict-overline {
+  color: #167343;
+}
+
+.verdict-card.verdict-suspicious {
+  background: #fff8e9;
+  border-color: #f1d69a;
+}
+
+.verdict-card.verdict-suspicious .verdict-symbol {
+  background: #ffedc2;
+  color: #925b00;
+}
+
+.verdict-card.verdict-suspicious .verdict-overline {
+  color: #925b00;
+}
+
+.verdict-card.verdict-danger {
+  background: #fff1f0;
+  border-color: #f3c1be;
+}
+
+.verdict-card.verdict-danger .verdict-symbol {
+  background: #ffdcda;
+  color: #b42318;
+}
+
+.verdict-card.verdict-danger .verdict-overline {
+  color: #b42318;
+}
+
+.live-badge.result-ready {
+  color: #167343;
+}
+
+.live-badge.result-ready > span {
+  background: #22a06b;
+}
+
+/* Make long UPI IDs and names fit */
+.identity-row strong {
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+/* Improve readability of assessment reasons */
+.reason-list li {
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.reason-list li p {
+  margin: 4px 0 0;
+  line-height: 1.5;
+}
