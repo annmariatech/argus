@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { scanQR } from "./argusApi";
 import "./App.css";
 
@@ -11,6 +11,9 @@ function App() {
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef(null);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
 
   function selectFile(selectedFile) {
     if (!selectedFile) return;
@@ -30,7 +33,84 @@ function App() {
     setResult(null);
     setError("");
   }
+  async function startCamera() {
+    setError("");
 
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError(
+        "Camera access is unavailable. Try HTTPS or localhost, or upload an image.",
+      );
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
+
+      streamRef.current = stream;
+      setCameraOpen(true);
+    } catch (err) {
+      console.error("Camera access failed:", err);
+      setError(
+        "Unable to access the camera. Allow camera permission or upload an image instead.",
+      );
+    }
+  }
+
+  function stopCamera() {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    setCameraOpen(false);
+  }
+
+  useEffect(() => {
+    if (cameraOpen && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(console.error);
+    }
+  }, [cameraOpen]);
+
+  useEffect(() => {
+    return () => {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
+
+  function capturePhoto() {
+    const video = videoRef.current;
+
+    if (!video || !video.videoWidth || !video.videoHeight) {
+      setError("Camera is not ready yet. Please try again.");
+      return;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const context = canvas.getContext("2d");
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          setError("Unable to capture the image. Please try again.");
+          return;
+        }
+
+        const photo = new File([blob], "camera-capture.jpg", {
+          type: "image/jpeg",
+        });
+
+        selectFile(photo);
+        stopCamera();
+      },
+      "image/jpeg",
+      0.92,
+    );
+  }
   async function verifyQR() {
     if (!file) {
       setError("Upload a QR image to get started.");
@@ -58,6 +138,7 @@ function App() {
   }
 
   function resetScan() {
+    stopCamera();
     setFile(null);
     setPreview("");
     setMerchant("");
@@ -157,6 +238,49 @@ function App() {
               accept="image/*"
               onChange={(event) => selectFile(event.target.files[0])}
             />
+
+            <div className="camera-controls">
+              {!cameraOpen ? (
+                <button
+                  type="button"
+                  className="camera-button"
+                  onClick={startCamera}
+                >
+                  <span aria-hidden="true">📷</span>
+                  Scan with Camera
+                </button>
+              ) : (
+                <div className="camera-view">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    aria-label="Live camera preview of QR code"
+                  />
+
+                  <p>Position the complete QR code inside the frame.</p>
+
+                  <div className="camera-actions">
+                    <button
+                      type="button"
+                      className="camera-button"
+                      onClick={capturePhoto}
+                    >
+                      Capture Photo
+                    </button>
+
+                    <button
+                      type="button"
+                      className="text-button"
+                      onClick={stopCamera}
+                    >
+                      Close Camera
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div
               className={`upload-area ${dragging ? "dragging" : ""} ${preview ? "has-preview" : ""}`}

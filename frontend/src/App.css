@@ -1366,3 +1366,71 @@ body,
   height: 100%;
   object-fit: contain;
 }
+
+
+.camera-controls {
+  margin-bottom: 16px;
+}
+
+.camera-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 18px;
+  border: 1px solid #e3b600;
+  border-radius: 12px;
+  background: #EA9F1E;
+  color: #191919;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.camera-button:hover {
+  background: #f2c400;
+  transform: translateY(-1px);
+}
+
+.camera-button:focus-visible,
+.text-button:focus-visible {
+  outline: 3px solid #252525;
+  outline-offset: 3px;
+}
+
+.camera-view {
+  padding: 14px;
+  border: 1px solid #e7dfbd;
+  border-radius: 14px;
+  background: #fffdf4;
+}
+
+.camera-view video {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 10px;
+  background: #191919;
+}
+
+.camera-view p {
+  margin: 12px 0;
+  font-size: 14px;
+  color: #555;
+}
+
+.camera-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (min-width: 480px) {
+  .camera-actions {
+    flex-direction: row;
+  }
+}
