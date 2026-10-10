@@ -66,13 +66,17 @@ function App() {
     if (fileInput.current) fileInput.current.value = "";
   }
 
+  const verdictClass = result?.verdict ? result.verdict.toLowerCase() : "";
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
         <a className="brand" href="#" aria-label="Argus home">
-          <span className="brand-icon">A</span>
+          <div className="brand-icon">
+            <img src="/argus-head.png" alt="" />
+          </div>
           <span>
-            argus<span className="brand-dot">.</span>
+            <img src="/argus-logo.png" alt="ARGUS" className="brand-logo" />
           </span>
         </a>
 
@@ -101,23 +105,34 @@ function App() {
           </div>
         </header>
 
-        <section className="page-heading">
-          <div className="eyebrow">YOUR PAYMENT SAFETY CHECK</div>
-          <h1>
-            Pause. Scan. <span>Verify.</span>
-          </h1>
-          <p>
-            Check a UPI QR code for potential warning signs before you make a
-            payment.
-          </p>
+        <section className="page-heading hero-heading">
+          <div className="hero-copy">
+            <div className="eyebrow">YOUR PAYMENT SAFETY CHECK</div>
+            <h1>
+              Pause. Scan. <span>Verify.</span>
+            </h1>
+            <p>
+              Check a UPI QR code for potential warning signs before you make a
+              payment.
+            </p>
+          </div>
+
+          <div className="hero-mascot-wrap">
+            <img
+              src="/argus-mascot.png"
+              alt="Argus yellow robot mascot"
+              className="hero-mascot"
+            />
+          </div>
         </section>
 
         <div className="notice">
           <span className="notice-icon">i</span>
+
           <p>
-            <strong>Prototype notice</strong> This prototype assesses QR payment
-            risk using available signals. It cannot guarantee payment safety. It
-            does not verify real QR codes or guarantee payment safety.
+            <strong>Prototype notice</strong> Argus checks available QR and
+            payee signals for potential warning signs. This risk assessment
+            cannot guarantee payment safety.
           </p>
         </div>
 
@@ -242,8 +257,9 @@ function App() {
                 <div className="step-label">STEP 02</div>
                 <h2>Security assessment</h2>
               </div>
-              <span className="live-badge">
-                <span /> API
+              <span className={`live-badge ${result ? "result-ready" : ""}`}>
+                <span />
+                {result ? "RESULT READY" : "READY TO SCAN"}
               </span>
             </div>
 
@@ -287,7 +303,7 @@ function App() {
               </div>
             ) : (
               <div className="result-content">
-                <div className="verdict-card">
+                <div className={`verdict-card verdict-${verdictClass}`}>
                   <div className="verdict-symbol">!</div>
 
                   <div>
