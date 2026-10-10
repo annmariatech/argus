@@ -1,5 +1,5 @@
-
 import { useRef, useState } from "react";
+import { scanQR } from "./argusApi";
 import "./App.css";
 
 function App() {
@@ -7,6 +7,7 @@ function App() {
   const [preview, setPreview] = useState("");
   const [merchant, setMerchant] = useState("");
   const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef(null);
@@ -30,7 +31,7 @@ function App() {
     setError("");
   }
 
-  function verifyQR() {
+  async function verifyQR() {
     if (!file) {
       setError("Upload a QR image to get started.");
       return;
@@ -41,21 +42,19 @@ function App() {
       return;
     }
 
-    // Temporary demo result. Real QR decoding and tamper
-    // detection will be connected through the team API.
-    setResult({
-      verdict: "SUSPICIOUS",
-      score: 42,
-      payee: "Demo Store",
-      vpa: "demo@upi",
-      reasons: [
-        "Demo result only — the QR has not been decoded.",
-        "Merchant identity has not been independently verified.",
-        "Physical tampering detection is not connected yet.",
-      ],
-    });
-
+    setLoading(true);
     setError("");
+    setResult(null);
+
+    try {
+      const data = await scanQR(file, merchant.trim());
+      setResult(data);
+    } catch (err) {
+      console.error("QR scan failed:", err);
+      setError(err.message || "Unable to scan the QR code.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   function resetScan() {
@@ -72,7 +71,9 @@ function App() {
       <aside className="sidebar">
         <a className="brand" href="#" aria-label="Argus home">
           <span className="brand-icon">A</span>
-          <span>argus<span className="brand-dot">.</span></span>
+          <span>
+            argus<span className="brand-dot">.</span>
+          </span>
         </a>
 
         <div className="side-label">WORKSPACE</div>
@@ -92,25 +93,31 @@ function App() {
 
       <main className="main-content">
         <header className="topbar">
-          <div className="breadcrumb">Workspace <span>/</span> QR Verification</div>
-          <div className="topbar-tag"><span /> PAYMENT SECURITY</div>
+          <div className="breadcrumb">
+            Workspace <span>/</span> QR Verification
+          </div>
+          <div className="topbar-tag">
+            <span /> PAYMENT SECURITY
+          </div>
         </header>
 
         <section className="page-heading">
           <div className="eyebrow">YOUR PAYMENT SAFETY CHECK</div>
-          <h1>Pause. Scan. <span>Verify.</span></h1>
+          <h1>
+            Pause. Scan. <span>Verify.</span>
+          </h1>
           <p>
-            Check a UPI QR code for potential warning signs before
-            you make a payment.
+            Check a UPI QR code for potential warning signs before you make a
+            payment.
           </p>
         </section>
 
         <div className="notice">
           <span className="notice-icon">i</span>
           <p>
-            <strong>Prototype notice</strong>
-            {" "}This interface currently uses demo results. It does not
-            verify real QR codes or guarantee payment safety.
+            <strong>Prototype notice</strong> This prototype assesses QR payment
+            risk using available signals. It cannot guarantee payment safety. It
+            does not verify real QR codes or guarantee payment safety.
           </p>
         </div>
 
@@ -162,8 +169,19 @@ function App() {
                 <>
                   <div className="upload-icon">
                     <svg viewBox="0 0 48 48" fill="none" aria-hidden="true">
-                      <path d="M24 31V8m0 0L15 17m9-9 9 9" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M9 29v9a2 2 0 0 0 2 2h26a2 2 0 0 0 2-2v-9" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+                      <path
+                        d="M24 31V8m0 0L15 17m9-9 9 9"
+                        stroke="currentColor"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <path
+                        d="M9 29v9a2 2 0 0 0 2 2h26a2 2 0 0 0 2-2v-9"
+                        stroke="currentColor"
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                      />
                     </svg>
                   </div>
                   <h3>Drop your QR image here</h3>
@@ -174,7 +192,9 @@ function App() {
                   >
                     Browse files <span>↗</span>
                   </button>
-                  <span className="file-hint">PNG, JPG or WEBP · Max 10 MB</span>
+                  <span className="file-hint">
+                    PNG, JPG or WEBP · Max 10 MB
+                  </span>
                 </>
               )}
             </div>
@@ -197,12 +217,20 @@ function App() {
               </span>
             </div>
 
-            {error && <div className="error-message" role="alert">{error}</div>}
+            {error && (
+              <div className="error-message" role="alert">
+                {error}
+              </div>
+            )}
 
-            <button className="verify-button" onClick={verifyQR}>
-              Verify payment QR <span>→</span>
+            <button
+              className="verify-button"
+              onClick={verifyQR}
+              disabled={loading}
+            >
+              {loading ? "Analyzing QR..." : "Verify payment QR"}
+              {!loading && <span>→</span>}
             </button>
-
             <div className="privacy-note">
               <span>◇</span> Don't enter your UPI PIN or banking credentials.
             </div>
@@ -214,7 +242,9 @@ function App() {
                 <div className="step-label">STEP 02</div>
                 <h2>Security assessment</h2>
               </div>
-              <span className="live-badge"><span /> DEMO</span>
+              <span className="live-badge">
+                <span /> API
+              </span>
             </div>
 
             {!result ? (
@@ -229,7 +259,7 @@ function App() {
                       <span
                         key={i}
                         className={
-                          ((i * 7 + Math.floor(i / 7) * 3) % 5 < 2)
+                          (i * 7 + Math.floor(i / 7) * 3) % 5 < 2
                             ? "qr-dark"
                             : ""
                         }
@@ -240,56 +270,78 @@ function App() {
                 </div>
                 <h3>Nothing scanned yet</h3>
                 <p>
-                  Your security assessment will appear here after
-                  you upload a QR image and enter a merchant name.
+                  Your security assessment will appear here after you upload a
+                  QR image and enter a merchant name.
                 </p>
                 <div className="check-list">
-                  <div><span>01</span> Payee identity comparison</div>
-                  <div><span>02</span> Visual tampering signals</div>
-                  <div><span>03</span> Risk explanation</div>
+                  <div>
+                    <span>01</span> Payee identity comparison
+                  </div>
+                  <div>
+                    <span>02</span> Visual tampering signals
+                  </div>
+                  <div>
+                    <span>03</span> Risk explanation
+                  </div>
                 </div>
               </div>
             ) : (
               <div className="result-content">
                 <div className="verdict-card">
                   <div className="verdict-symbol">!</div>
+
                   <div>
-                    <div className="verdict-overline">DEMO VERDICT</div>
+                    <div className="verdict-overline">RISK ASSESSMENT</div>
                     <h3>{result.verdict}</h3>
-                    <p>Illustrative result — not a real security check.</p>
+                    <p>
+                      {result.disclaimer ||
+                        "This assessment cannot guarantee payment safety."}
+                    </p>
                   </div>
+
                   <div className="risk-score">
-                    <strong>{result.score}</strong>
-                    <span>DEMO SCORE</span>
+                    <strong>{result.risk_score}</strong>
+                    <span>RISK SCORE / 100</span>
                   </div>
                 </div>
 
                 <div className="identity-card">
                   <div className="identity-title">IDENTITY DETAILS</div>
+
                   <div className="identity-row">
                     <span>Entered merchant</span>
-                    <strong>{merchant}</strong>
+                    <strong>{result.merchant_name || merchant}</strong>
                   </div>
+
                   <div className="identity-row">
-                    <span>Example QR payee</span>
-                    <strong>{result.payee}</strong>
+                    <span>QR payee name</span>
+                    <strong>{result.payee?.name || "Unavailable"}</strong>
                   </div>
+
                   <div className="identity-row">
-                    <span>Example UPI ID</span>
-                    <strong>{result.vpa}</strong>
+                    <span>UPI ID</span>
+                    <strong>{result.payee?.vpa || "Unavailable"}</strong>
                   </div>
                 </div>
 
                 <div className="reasons-title">ASSESSMENT NOTES</div>
+
                 <ul className="reason-list">
-                  {result.reasons.map((reason, index) => (
-                    <li key={index}><span>!</span>{reason}</li>
+                  {result.reasons?.map((reason, index) => (
+                    <li key={`${reason.code}-${index}`}>
+                      <span>!</span>
+                      <div>
+                        <strong>{reason.code.replaceAll("_", " ")}</strong>
+                        <p>{reason.message}</p>
+                      </div>
+                    </li>
                   ))}
                 </ul>
 
                 <div className="result-warning">
-                  Never pay based on this demo result. Verify the payee
-                  independently in your UPI app before authorizing payment.
+                  This assessment is not a guarantee of payment safety. Verify
+                  the payee independently in your UPI app before authorizing
+                  payment.
                 </div>
 
                 <button className="secondary-button" onClick={resetScan}>
@@ -301,7 +353,9 @@ function App() {
         </div>
 
         <footer className="page-footer">
-          <span>ARGUS <span className="brand-dot">/</span> PAYMENT GUARDIAN</span>
+          <span>
+            ARGUS <span className="brand-dot">/</span> PAYMENT GUARDIAN
+          </span>
           <span>Built for safer digital payments · Hackathon prototype</span>
         </footer>
       </main>
