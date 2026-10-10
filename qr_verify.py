@@ -8,11 +8,12 @@ payment authentication.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any, Mapping
 from urllib.parse import parse_qs, urlparse
 import re
+
+from risk_features import compare_payee_name
 
 
 @dataclass(frozen=True)
@@ -80,22 +81,21 @@ def build_verdict(
 
     reasons: list[dict[str, str]] = []
     score = 0
-    merchant = _clean(merchant_name)
-    payee_name = _clean(payee.name)
-    if merchant and payee_name:
-        similarity = SequenceMatcher(None, merchant, payee_name).ratio()
-        if similarity >= 0.86:
+    comparison = compare_payee_name(payee.name, merchant_name)
+    similarity = comparison["payee_name_similarity"]
+    if similarity is not None:
+        if comparison["name_match"]:
             reasons.append({"code": "NAME_MATCH", "message": "The QR payee name matches the merchant name."})
-        elif similarity >= 0.62:
+        elif comparison["name_partial_match"]:
             score += 30
             reasons.append({"code": "NAME_PARTIAL_MATCH", "message": "The QR payee name is similar, but does not clearly match the merchant."})
         else:
             score += 55
             reasons.append({"code": "NAME_MISMATCH", "message": "The QR payee name does not match the merchant name."})
-    elif not payee_name:
+    elif comparison["payee_name_missing"]:
         score += 20
         reasons.append({"code": "PAYEE_NAME_MISSING", "message": "The QR code does not provide a payee name to compare."})
-    elif not merchant:
+    elif comparison["merchant_name_missing"]:
         score += 20
         reasons.append({"code": "MERCHANT_NAME_MISSING", "message": "A merchant name was not provided or could not be read."})
 
@@ -156,7 +156,3 @@ def _first(query: Mapping[str, list[str]], key: str) -> str | None:
 
 def _looks_like_vpa(value: str) -> bool:
     return bool(re.fullmatch(r"[A-Za-z0-9._-]{2,256}@[A-Za-z0-9.-]{2,64}", value))
-
-
-def _clean(value: str | None) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", value.casefold()).strip() if value else ""

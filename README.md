@@ -45,6 +45,22 @@ authentication or a guarantee of safety.
 
 Run the module's independent checks with `python -m unittest test_qr_verify`.
 
+## Model-input preparation
+
+`risk_features.py` provides `extract_risk_features(payee, merchant_name,
+tamper_result)`. It returns numeric inputs and explicit missing indicators for
+the payee/name comparison, VPA, tamper score, and each raw tamper measurement.
+Unavailable values remain `None`; invalid, non-finite, or out-of-range values
+raise `ValueError` rather than being silently replaced. The name similarity
+and match flags use the same comparison thresholds as `build_verdict()`.
+This is feature preparation only: there is no trained model or ML prediction.
+
+The detector preserves `tamper_score` and `tamper_reasons` and now also returns
+`side_imbalance`, `angle_deviation`, `edge_score`, `roughness_score`,
+`contour_irregularity`, `corner_abuse_score`, and `texture_difference`. Those
+measurement fields are `None` when unavailable; partial analyses retain any
+measurements that were calculated.
+
 ## HTTP API for the React frontend
 
 The FastAPI server exposes `POST /api/scan`. It accepts multipart form data

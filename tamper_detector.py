@@ -2,12 +2,27 @@
 import cv2
 import numpy as np
 
+MEASUREMENT_FIELDS = (
+    "side_imbalance",
+    "angle_deviation",
+    "edge_score",
+    "roughness_score",
+    "contour_irregularity",
+    "corner_abuse_score",
+    "texture_difference",
+)
 
-def unavailable(message):
-    return {
+
+def unavailable(message, measurements=None):
+    """Return an unavailable result with explicit nullable measurements."""
+    result = {
         "tamper_score": None,
-        "tamper_reasons": [message]
+        "tamper_reasons": [message],
+        **{field: None for field in MEASUREMENT_FIELDS},
     }
+    if measurements:
+        result.update({field: measurements.get(field) for field in MEASUREMENT_FIELDS})
+    return result
 
 
 def detect_boundary_edges(image, corners):
@@ -221,8 +236,27 @@ def analyze_tampering(image, qr_corners):
     corner_abuse_score = detect_corner_abuse(image, points)
     texture_result = compare_boundary_texture(image, points)
 
-    if edge_score is None or texture_result is None:
-        return unavailable("Tamper analysis unavailable: image measurements could not be calculated.")
+    measurements = {
+        "side_imbalance": side_imbalance,
+        "angle_deviation": angle_deviation,
+        "edge_score": edge_score,
+        "roughness_score": roughness_score,
+        "contour_irregularity": contour_irregularity,
+        "corner_abuse_score": corner_abuse_score,
+        "texture_difference": (
+            texture_result["texture_difference"] if texture_result is not None else None
+        ),
+    }
+
+    invalid_measurement = any(
+        value is None or not np.isfinite(value)
+        for value in measurements.values()
+    )
+    if invalid_measurement:
+        return unavailable(
+            "Tamper analysis unavailable: image measurements could not be calculated.",
+            measurements,
+        )
 
     texture_difference = texture_result["texture_difference"]
 
@@ -278,7 +312,8 @@ def analyze_tampering(image, qr_corners):
         )
         return {
             "tamper_score": int(score),
-            "tamper_reasons": reasons
+            "tamper_reasons": reasons,
+            **measurements,
         }
 
     score = round(min(
@@ -329,5 +364,6 @@ def analyze_tampering(image, qr_corners):
 
     return {
         "tamper_score": int(score),
-        "tamper_reasons": reasons
+        "tamper_reasons": reasons,
+        **measurements,
     }
