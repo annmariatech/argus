@@ -44,3 +44,32 @@ cannot silently result in SAFE. These are explainable heuristics, not payment
 authentication or a guarantee of safety.
 
 Run the module's independent checks with `python -m unittest test_qr_verify`.
+
+## HTTP API for the React frontend
+
+The FastAPI server exposes `POST /api/scan`. It accepts multipart form data
+with the QR image in `file` and the displayed shop name in `merchant_name`.
+The response uses the verdict contract above. The current endpoint includes
+the QR/payee and merchant checks; until Devika's detector is connected, the
+verdict will include `TAMPER_UNAVAILABLE` and score that missing signal as
+risk rather than claiming the image was checked.
+
+```bash
+python3 -m pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+The API runs at `http://localhost:8000`; its interactive documentation is at
+`http://localhost:8000/docs`. The local React origins `localhost:3000` and
+`localhost:5173` are allowed for development. Example frontend request:
+
+```javascript
+const form = new FormData();
+form.append("file", qrImageFile);
+form.append("merchant_name", shopName);
+const response = await fetch("http://localhost:8000/api/scan", {
+  method: "POST",
+  body: form,
+});
+const verdict = await response.json();
+```

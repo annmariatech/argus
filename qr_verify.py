@@ -23,14 +23,21 @@ class Payee:
 
 def decode_qr_image(image_path: str | Path) -> str:
     """Decode one QR code from an image file using OpenCV's built-in detector."""
+    image_bytes = Path(image_path).read_bytes()
+    return decode_qr_bytes(image_bytes)
+
+
+def decode_qr_bytes(image_bytes: bytes) -> str:
+    """Decode one QR code from uploaded image bytes."""
     try:
         import cv2  # type: ignore[import-not-found]
+        import numpy as np
     except ImportError as exc:
-        raise RuntimeError("QR image decoding requires OpenCV (cv2)") from exc
+        raise RuntimeError("QR image decoding requires OpenCV and NumPy") from exc
 
-    image = cv2.imread(str(image_path))
+    image = cv2.imdecode(np.frombuffer(image_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
     if image is None:
-        raise ValueError(f"Could not read QR image: {image_path}")
+        raise ValueError("Uploaded file is not a readable image")
     payload, points, _ = cv2.QRCodeDetector().detectAndDecode(image)
     if not payload or points is None:
         raise ValueError("No readable QR code was found in the image")
@@ -91,6 +98,7 @@ def build_verdict(
         reasons.append({"code": "VPA_MISSING", "message": "A valid UPI address (VPA) was not found in the QR payload."})
 
     if tamper_score is None:
+        score += 20
         reasons.append({"code": "TAMPER_UNAVAILABLE", "message": "Visual tamper analysis is unavailable, so the QR image could not be checked for alteration."})
     else:
         tamper = max(0, min(100, float(tamper_score)))
