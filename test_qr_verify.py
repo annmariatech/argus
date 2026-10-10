@@ -42,8 +42,12 @@ class BuildVerdictTests(unittest.TestCase):
 
 
 class ScanApiTests(unittest.TestCase):
-    @patch("main.decode_qr_bytes", return_value="upi://pay?pa=shop%40okbank&pn=Green%20Mart")
-    def test_accepts_multipart_file_and_merchant_name(self, _decode):
+    @patch("main.analyze_tampering", return_value={"tamper_score": 5, "tamper_reasons": ["Low edge wear"]})
+    @patch(
+        "main.decode_qr_image_bytes",
+        return_value=("upi://pay?pa=shop%40okbank&pn=Green%20Mart", object(), object()),
+    )
+    def test_accepts_multipart_file_and_merchant_name(self, _decode, _tamper):
         result = asyncio.run(
             scan_qr(
                 file=UploadFile(filename="qr.png", file=BytesIO(b"image bytes")),
@@ -52,12 +56,15 @@ class ScanApiTests(unittest.TestCase):
         )
         self.assertEqual(result["payee"], {"name": "Green Mart", "vpa": "shop@okbank"})
         self.assertEqual(result["merchant_name"], "Green Mart")
+        self.assertIn("TAMPER_LOW", [reason["code"] for reason in result["reasons"]])
+        self.assertIn("TAMPER_DETAIL", [reason["code"] for reason in result["reasons"]])
+        self.assertNotIn("TAMPER_UNAVAILABLE", [reason["code"] for reason in result["reasons"]])
         self.assertEqual(
             set(result),
             {"verdict", "risk_score", "payee", "merchant_name", "reasons", "disclaimer"},
         )
 
-    @patch("main.decode_qr_bytes", side_effect=ValueError("No readable QR code was found in the image"))
+    @patch("main.decode_qr_image_bytes", side_effect=ValueError("No readable QR code was found in the image"))
     def test_returns_clear_error_for_unreadable_qr(self, _decode):
         with self.assertRaises(HTTPException) as caught:
             asyncio.run(

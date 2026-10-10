@@ -3,7 +3,8 @@
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from qr_verify import build_verdict, decode_qr_bytes, extract_upi_payee
+from qr_verify import build_verdict, decode_qr_image_bytes, extract_upi_payee
+from tamper_detector import analyze_tampering
 
 app = FastAPI(
     title="Argus QR Verification API",
@@ -36,7 +37,7 @@ async def scan_qr(
         image_bytes = await file.read()
         if not image_bytes:
             raise ValueError("Uploaded file is empty")
-        payload = decode_qr_bytes(image_bytes)
+        payload, image, qr_corners = decode_qr_image_bytes(image_bytes)
         payee = extract_upi_payee(payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -45,4 +46,17 @@ async def scan_qr(
     finally:
         await file.close()
 
-    return build_verdict(payee, merchant_name)
+    try:
+        tamper_result = analyze_tampering(image, qr_corners)
+    except Exception as exc:
+        tamper_result = {
+            "tamper_score": None,
+            "tamper_reasons": [f"Tamper analysis unavailable: {exc}"],
+        }
+
+    return build_verdict(
+        payee,
+        merchant_name,
+        tamper_score=tamper_result.get("tamper_score"),
+        tamper_reasons=tamper_result.get("tamper_reasons", []),
+    )

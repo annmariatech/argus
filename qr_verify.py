@@ -29,6 +29,12 @@ def decode_qr_image(image_path: str | Path) -> str:
 
 def decode_qr_bytes(image_bytes: bytes) -> str:
     """Decode one QR code from uploaded image bytes."""
+    payload, _, _ = decode_qr_image_bytes(image_bytes)
+    return payload
+
+
+def decode_qr_image_bytes(image_bytes: bytes) -> tuple[str, Any, Any]:
+    """Decode uploaded image bytes and return payload, image, and QR corners."""
     try:
         import cv2  # type: ignore[import-not-found]
         import numpy as np
@@ -41,7 +47,7 @@ def decode_qr_bytes(image_bytes: bytes) -> str:
     payload, points, _ = cv2.QRCodeDetector().detectAndDecode(image)
     if not payload or points is None:
         raise ValueError("No readable QR code was found in the image")
-    return payload.strip()
+    return payload.strip(), image, points
 
 
 def extract_upi_payee(payload: str) -> Payee:

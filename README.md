@@ -49,10 +49,11 @@ Run the module's independent checks with `python -m unittest test_qr_verify`.
 
 The FastAPI server exposes `POST /api/scan`. It accepts multipart form data
 with the QR image in `file` and the displayed shop name in `merchant_name`.
-The response uses the verdict contract above. The current endpoint includes
-the QR/payee and merchant checks; until Devika's detector is connected, the
-verdict will include `TAMPER_UNAVAILABLE` and score that missing signal as
-risk rather than claiming the image was checked.
+The endpoint decodes the image once, then passes the decoded OpenCV image and
+QR boundary coordinates to Devika's `tamper_detector.analyze_tampering`.
+Its `tamper_score` and `tamper_reasons` are included in the combined verdict.
+If the detector cannot analyze the image, the response explains that and
+scores the missing signal as risk rather than claiming the image was checked.
 
 ```bash
 python3 -m pip install -r requirements.txt
