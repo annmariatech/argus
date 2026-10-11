@@ -37,3 +37,17 @@ export const loginMerchant = (body) => request("/api/merchant/login", { method: 
 export const getMerchant = (token) => request("/api/merchant/me", { token });
 export const updateMerchant = (token, body) => request("/api/merchant/me", { method: "PUT", token, body });
 export const logoutMerchant = (token) => request("/api/merchant/logout", { method: "POST", token });
+
+async function adminRequest(path, token, method = "GET") {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method,
+    headers: { Authorization: `Admin ${token}` },
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || `Request failed: ${response.status}`);
+  return data;
+}
+
+export const getPendingMerchants = (token) => adminRequest("/api/merchant/operator/pending", token);
+export const setMerchantVerified = (token, merchantId, verified) =>
+  adminRequest(`/api/merchant/operator/verify-upi/${merchantId}?verified=${verified}`, token, "POST");

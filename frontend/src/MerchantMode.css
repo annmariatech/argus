@@ -9,9 +9,15 @@
 .merchant-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 20px 0; }
 .merchant-form-grid label { display: grid; gap: 8px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .4px; }
 .merchant-form-grid input { width: 100%; min-height: 45px; padding: 0 13px; border: 1px solid var(--line-strong); border-radius: 9px; background: #11110f; color: var(--text); }
-.merchant-location-button { margin-bottom: 19px; }
+.merchant-coordinate-group { margin-top: 2px; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.02); }
+.merchant-coordinate-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.merchant-coordinate-fields label { display: grid; gap: 8px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .4px; }
+.merchant-coordinate-fields input { width: 100%; min-height: 45px; padding: 0 13px; border: 1px solid var(--line-strong); border-radius: 9px; background: #11110f; color: var(--text); }
+.merchant-location-button { min-height: 40px; margin-top: 14px; padding: 0 13px; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--amber-light); background: rgba(245,189,50,.07); }
+.merchant-location-button:hover { border-color: var(--amber-deep); background: rgba(245,189,50,.13); }
+.merchant-radius-row { max-width: calc(50% - 9px); }
 .merchant-status, .merchant-disclaimer { margin: 17px 0; padding: 14px; border-radius: 9px; background: rgba(245,189,50,.07); color: var(--muted); line-height: 1.6; }
 .merchant-status strong { color: var(--amber-light); }
 .merchant-message { color: var(--green); }
 .merchant-actions { display: flex; align-items: center; gap: 20px; }
-@media (max-width: 620px) { .merchant-heading { align-items: start; flex-direction: column; } .merchant-form-grid { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .merchant-heading { align-items: start; flex-direction: column; } .merchant-form-grid, .merchant-coordinate-fields { grid-template-columns: 1fr; } .merchant-radius-row { max-width: none; } }

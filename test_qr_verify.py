@@ -61,7 +61,7 @@ class ScanApiTests(unittest.TestCase):
         self.assertNotIn("TAMPER_UNAVAILABLE", [reason["code"] for reason in result["reasons"]])
         self.assertEqual(
             set(result),
-            {"verdict", "risk_score", "payee", "merchant_name", "reasons", "disclaimer"},
+            {"verdict", "risk_score", "payee", "merchant_name", "reasons", "disclaimer", "location_verification"},
         )
 
     @patch("main.decode_qr_image_bytes", side_effect=ValueError("No readable QR code was found in the image"))

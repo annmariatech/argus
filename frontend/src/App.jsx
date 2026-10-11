@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { scanQR } from "./argusApi";
 import MerchantMode from "./MerchantMode";
+import AdminMode from "./AdminMode";
+import { makeTranslator } from "./i18n";
 import "./App.css";
 
 const MAX_RECENT_SCANS = 5;
@@ -18,9 +20,14 @@ function App() {
   const [recentScans, setRecentScans] = useState([]);
   const [selectedHistoryId, setSelectedHistoryId] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [activeSection, setActiveSection] = useState("scan");
-  const [showMerchantMode, setShowMerchantMode] = useState(false);
+  const [activeSection, setActiveSection] = useState(() => {
+    const currentRoute = routeFromPath(window.location.pathname);
+    return currentRoute === "merchant" || currentRoute === "admin" ? currentRoute : "scan";
+  });
+  const [page, setPage] = useState(() => routeFromPath(window.location.pathname));
+  const [language, setLanguage] = useState(() => window.localStorage.getItem("argus-language") || "en");
   const [location, setLocation] = useState({ status: "unavailable", position: null });
+  const t = makeTranslator(language);
 
   const fileInput = useRef(null);
   const historyCounterRef = useRef(0);
@@ -32,16 +39,46 @@ function App() {
   const assessmentRef = useRef(null);
   const historySectionRef = useRef(null);
 
+  useEffect(() => {
+    const handlePopState = () => {
+      const route = routeFromPath(window.location.pathname);
+      setPage(route);
+      setActiveSection(route === "home" ? "scan" : route);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+    document.title = t(page === "merchant" ? "Merchant Mode" : page === "admin" ? "Admin Mode" : "Payment Security");
+  }, [language, page, t]);
+
+  function navigate(path) {
+    if (window.location.pathname !== path) window.history.pushState({}, "", path);
+    setPage(routeFromPath(path));
+    setDrawerOpen(false);
+    if (path === "/") setActiveSection("scan");
+    if (path === "/merchant") setActiveSection("merchant");
+    if (path === "/admin") setActiveSection("admin");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function changeLanguage(nextLanguage) {
+    setLanguage(nextLanguage);
+    window.localStorage.setItem("argus-language", nextLanguage);
+  }
+
   function selectFile(selectedFile) {
     if (!selectedFile) return;
 
     if (!selectedFile.type.startsWith("image/")) {
-      setError("Please select an image file.");
+      setError(t("Please select an image file."));
       return;
     }
 
     if (selectedFile.size > 10 * 1024 * 1024) {
-      setError("Please choose an image smaller than 10 MB.");
+      setError(t("Please choose an image smaller than 10 MB."));
       return;
     }
 
@@ -150,7 +187,7 @@ function App() {
     const video = videoRef.current;
 
     if (!video || !video.videoWidth || !video.videoHeight) {
-      setError("Camera is not ready yet. Please try again.");
+      setError(t("Camera is not ready yet. Please try again."));
       return;
     }
 
@@ -164,7 +201,7 @@ function App() {
     canvas.toBlob(
       (blob) => {
         if (!blob) {
-          setError("Unable to capture the image. Please try again.");
+          setError(t("Unable to capture the image. Please try again."));
           return;
         }
 
@@ -182,12 +219,12 @@ function App() {
 
   async function verifyQR() {
     if (!file) {
-      setError("Upload a QR image to get started.");
+      setError(t("Upload a QR image to get started."));
       return;
     }
 
     if (!merchant.trim()) {
-      setError("Enter the merchant name displayed at the shop.");
+      setError(t("Enter the merchant name displayed at the shop."));
       return;
     }
 
@@ -219,7 +256,7 @@ function App() {
       }, 40);
     } catch (err) {
       console.error("QR scan failed:", err);
-      setError(err.message || "Unable to scan the QR code.");
+      setError(t(err.message || "Unable to scan the QR code."));
     } finally {
       setLoading(false);
     }
@@ -255,11 +292,15 @@ function App() {
   }
 
   function openSection(section) {
-    setActiveSection(section);
-    setDrawerOpen(false);
-    setShowMerchantMode(section === "merchant");
-    if (section === "scan") setStage("scan");
-    if (section === "merchant") return;
+    if (section === "merchant") return navigate("/merchant");
+    if (section === "admin") return navigate("/admin");
+    if (section === "scan" || section === "history") {
+      if (window.location.pathname !== "/") window.history.pushState({}, "", "/");
+      setPage("home");
+      setActiveSection(section);
+      setDrawerOpen(false);
+      if (section === "scan") setStage("scan");
+    }
     window.setTimeout(() => {
       const target = section === "history" ? historySectionRef.current : scanSectionRef.current;
       target?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -281,11 +322,12 @@ function App() {
       (geoError) => {
         const denied = geoError.code === geoError.PERMISSION_DENIED;
         setLocation({ status: denied ? "denied" : "unavailable", position: null });
-        setError(denied
+        const message = denied
           ? "The browser denied location access. Check macOS Location Services and this site's location permission, then try again."
           : geoError.code === geoError.TIMEOUT
             ? "The browser timed out while finding your location. Check your network and location services, then retry."
-            : `The browser could not determine a location${geoError.message ? ` (${geoError.message})` : ""}. Check macOS Location Services and this site's permission, then retry.`);
+            : "The browser could not determine a location. Check macOS Location Services and this site's permission, then retry.";
+        setError(`${t(message)}${geoError.code ? ` (${geoError.code})` : ""}`);
       },
       // Desktop Macs commonly determine location from Wi-Fi rather than GPS.
       // Do not require a high-accuracy GPS fix; the browser reports uncertainty
@@ -297,12 +339,12 @@ function App() {
   const verdictClass = result?.verdict ? result.verdict.toLowerCase() : "";
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" lang={language}>
       <button
         className={`drawer-backdrop ${drawerOpen ? "is-visible" : ""}`}
         type="button"
         tabIndex={-1}
-        aria-label="Close navigation menu"
+        aria-label={t("Close navigation menu")}
         aria-hidden={!drawerOpen}
         onClick={() => setDrawerOpen(false)}
       />
@@ -312,67 +354,68 @@ function App() {
         id="app-navigation"
         role="dialog"
         aria-modal={drawerOpen}
-        aria-label="Main navigation"
+        aria-label={t("Main navigation")}
         aria-hidden={!drawerOpen}
         inert={!drawerOpen}
       >
         <div className="drawer-header">
           <a
             className="brand"
-            href="#top"
-            onClick={() => {
-              setDrawerOpen(false);
-              setActiveSection("scan");
-            }}
-            aria-label="Argus home"
+            href="/"
+            onClick={(event) => { event.preventDefault(); navigate("/"); }}
+            aria-label={t("Home")}
           >
-            <span className="brand-icon">
-              <img src="/argus-head.png" alt="" />
-            </span>
-            <img src="/argus-logo.png" alt="ARGUS" className="brand-logo" />
+            <img src="/argus-logo.png" alt={t("Argus official logo")} className="brand-logo" />
           </a>
           <button
             className="drawer-close"
             type="button"
             ref={drawerCloseRef}
-            aria-label="Close navigation menu"
+            aria-label={t("Close navigation menu")}
             onClick={() => setDrawerOpen(false)}
           >
             <span aria-hidden="true">×</span>
           </button>
         </div>
 
-        <div className="side-label">WORKSPACE</div>
-        <nav className="navigation-links" aria-label="Workspace sections">
+        <div className="side-label">{t("Workspace")}</div>
+        <nav className="navigation-links" aria-label={t("Workspace")}>
           <a
             className={`nav-item ${activeSection === "scan" ? "active" : ""}`}
-            href="#scan-stage"
+            href="/"
             onClick={(event) => { event.preventDefault(); openSection("scan"); }}
           >
-            <span aria-hidden="true">⌗</span> QR Verification
+            <span aria-hidden="true">⌗</span> {t("QR Verification")}
           </a>
           <a
             className={`nav-item ${activeSection === "history" ? "active" : ""}`}
-            href="#scan-history"
+            href="/#scan-history"
             onClick={(event) => { event.preventDefault(); openSection("history"); }}
           >
-            <span aria-hidden="true">◷</span> Scan History
+            <span aria-hidden="true">◷</span> {t("Scan History")}
             {recentScans.length > 0 && (
               <span className="history-count">{recentScans.length}</span>
             )}
           </a>
           <a
             className={`nav-item ${activeSection === "merchant" ? "active" : ""}`}
-            href="#merchant-mode"
+            href="/merchant"
             onClick={(event) => { event.preventDefault(); openSection("merchant"); }}
           >
-            <span aria-hidden="true">⌂</span> Merchant Mode
+            <span aria-hidden="true">⌂</span> {t("Merchant Mode")}
+          </a>
+          <a
+            className={`nav-item ${activeSection === "admin" ? "active" : ""}`}
+            href="/admin"
+            onClick={(event) => { event.preventDefault(); openSection("admin"); }}
+          >
+            <span aria-hidden="true">◇</span> {t("Admin Mode")}
           </a>
         </nav>
 
         <div className="sidebar-bottom">
           <span className="status-dot" aria-hidden="true" />
-          <span>Prototype environment</span>
+          <span>{t("Prototype environment")}</span>
         </div>
       </aside>
 
@@ -382,7 +425,7 @@ function App() {
             ref={menuButtonRef}
             type="button"
             className="menu-trigger"
-            aria-label="Open navigation menu"
+            aria-label={t("Open navigation menu")}
             aria-expanded={drawerOpen}
             aria-controls="app-navigation"
             onClick={() => setDrawerOpen(true)}
@@ -392,13 +435,19 @@ function App() {
             <span />
           </button>
           <div className="breadcrumb">
-            ARGUS <span>/</span> PAYMENT SECURITY
+            <img src="/argus-logo.png" alt={t("Argus official logo")} className="breadcrumb-logo" />
+            <span>/</span> {t(page === "merchant" ? "Merchant Mode" : page === "admin" ? "Admin Mode" : "Payment Security")}
           </div>
           <div className="topbar-tag">
-            <span aria-hidden="true" /> QR RISK WORKSPACE
+            <span aria-hidden="true" /> {t("QR Risk Workspace")}
           </div>
+          <button className="language-toggle" type="button" onClick={() => changeLanguage(language === "en" ? "ml" : "en")} lang={language === "en" ? "ml" : "en"}>
+            {language === "en" ? "മലയാളം" : "English"}
+          </button>
         </header>
-
+        {page === "merchant" && <MerchantMode onBack={() => navigate("/")} t={t} />}
+        {page === "admin" && <AdminMode onBack={() => navigate("/")} t={t} />}
+        {page === "home" && <>
         <section className="hero" aria-labelledby="hero-title">
           <div className="hero-grid" aria-hidden="true" />
           <div className="hero-glow hero-glow-one" aria-hidden="true" />
@@ -406,100 +455,94 @@ function App() {
 
           <div className="hero-copy">
             <div className="hero-brand-signature">
-              <span className="signature-icon"><img src="/argus-head.png" alt="" /></span>
-              <span className="signature-name">ARGUS<small>PAYMENT GUARDIAN</small></span>
+              <img src="/argus-logo.png" alt={t("Argus official logo")} className="signature-logo" />
             </div>
-            <div className="eyebrow"><span /> YOUR PAYMENT SAFETY CHECK</div>
+            <div className="eyebrow"><span /> {t("Your payment safety check")}</div>
             <h1 id="hero-title">
-              Pause. Scan.<br />
-              <span className="verify-word">Verify.</span>
+              {t("Pause. Scan.")}<br />
+              <span className="verify-word">{t("Verify.")}</span>
             </h1>
-            <p>
-              Check who a UPI QR points to and inspect its visible edges for
-              signs of tampering before you pay.
-            </p>
+            <p>{t("Check who a UPI QR points to and inspect its visible edges for signs of tampering before you pay.")}</p>
             <a
               className="primary-cta"
               href="#scan-stage"
               onClick={(event) => { event.preventDefault(); openSection("scan"); }}
             >
-              Start a security check <span aria-hidden="true">↗</span>
+              {t("Start a security check")} <span aria-hidden="true">↗</span>
             </a>
             <div className="hero-assurance">
-              <span aria-hidden="true">⌁</span> No payment or PIN required
+              <span aria-hidden="true">⌁</span> {t("No payment or PIN required")}
             </div>
           </div>
 
-          <div className="hero-art" aria-label="Argus security assistant">
+          <div className="hero-art" aria-label={t("Payment safety assistant")}>
             <div className="hero-orbit orbit-one" aria-hidden="true" />
             <div className="hero-orbit orbit-two" aria-hidden="true" />
-            <div className="hero-art-tag"><span /> QR INTEGRITY MONITOR</div>
+            <div className="hero-art-tag"><span /> {t("QR integrity monitor")}</div>
             <img
               src="/argus-mascot.png"
-              alt="Argus yellow robot mascot"
+              alt={t("Yellow robot mascot")}
               className="hero-mascot"
             />
             <div className="hero-signal-card">
               <span className="signal-icon" aria-hidden="true">⌗</span>
-              <span><strong>Payee check</strong><small>Before you authorize</small></span>
+              <span><strong>{t("Payee check")}</strong><small>{t("Before you authorize")}</small></span>
               <span className="signal-dot" aria-hidden="true" />
             </div>
           </div>
 
           <div className="hero-footnote">
-            <span>01 — 03</span> A clearer moment before every payment
+            <span>01 — 03</span> · {t("A clearer moment before every payment")}
           </div>
         </section>
 
         <section className="how-section" aria-labelledby="how-title">
-          <div className="section-kicker">A SIMPLE CHECKPOINT</div>
+          <div className="section-kicker">{t("A simple checkpoint")}</div>
           <div className="how-heading-row">
-            <h2 id="how-title">How Argus works</h2>
-            <p>Three quick checks. One explainable assessment.</p>
+            <h2 id="how-title">{t("How this check works")}</h2>
+            <p>{t("Three quick checks. One explainable assessment.")}</p>
           </div>
           <div className="how-steps">
             <article className="how-step">
               <span className="step-number">01</span>
               <div className="step-icon" aria-hidden="true">⌗</div>
-              <h3>Scan the QR</h3>
-              <p>Upload a clear image or capture the payment QR with your camera.</p>
+              <h3>{t("Scan the QR")}</h3>
+              <p>{t("Upload a clear image or capture the payment QR with your camera.")}</p>
             </article>
             <article className="how-step">
               <span className="step-number">02</span>
               <div className="step-icon" aria-hidden="true">◎</div>
-              <h3>Check the signals</h3>
-              <p>Compare the payee with the shop name and inspect visible QR edges.</p>
+              <h3>{t("Check the signals")}</h3>
+              <p>{t("Compare the payee with the shop name and inspect visible QR edges.")}</p>
             </article>
             <article className="how-step">
               <span className="step-number">03</span>
               <div className="step-icon" aria-hidden="true">↗</div>
-              <h3>Review the result</h3>
-              <p>Read the verdict and reasons before deciding what to do next.</p>
+              <h3>{t("Review the result")}</h3>
+              <p>{t("Read the verdict and reasons before deciding what to do next.")}</p>
             </article>
           </div>
         </section>
 
-        <section className="workflow" aria-label="QR security check workflow">
+        <section className="workflow" aria-label={t("QR security check workflow")}>
           <div className="workflow-heading">
             <div>
-              <div className="section-kicker">SECURITY WORKSPACE</div>
-              <h2>Payment QR assessment</h2>
+              <div className="section-kicker">{t("Security workspace")}</div>
+              <h2>{t("Payment QR assessment")}</h2>
             </div>
-            <div className="workflow-progress" aria-label={`Current stage: ${stage === "scan" ? "1 of 2, scan" : "2 of 2, assessment"}`}>
-              <span className={stage === "scan" ? "current" : "complete"}>01 <b>Scan</b></span>
+            <div className="workflow-progress" aria-label={`${t("Current stage")}: ${stage === "scan" ? t("1 of 2, scan") : t("2 of 2, assessment")}`}>
+              <span className={stage === "scan" ? "current" : "complete"}>01 <b>{t("Scan")}</b></span>
               <i aria-hidden="true" />
-              <span className={stage === "assessment" ? "current" : ""}>02 <b>Assessment</b></span>
+              <span className={stage === "assessment" ? "current" : ""}>02 <b>{t("Assessment")}</b></span>
             </div>
           </div>
 
-          {showMerchantMode ? (
-            <MerchantMode onBack={() => openSection("scan")} />
-          ) : stage === "scan" ? (
+          {stage === "scan" ? (
             <section className="scan-stage stage-enter" id="scan-stage" ref={scanSectionRef} aria-labelledby="scan-title">
               <div className="stage-intro">
-                <span className="stage-index">STEP 01</span>
-                <h3 id="scan-title">Start with the payment QR</h3>
-                <p>Use a clear photo that includes the complete code and its printed border.</p>
+                <span className="stage-index">{t("Step 01")}</span>
+                <h3 id="scan-title">{t("Start with the payment QR")}</h3>
+                <p>{t("Use a clear photo that includes the complete code and its printed border.")}</p>
               </div>
 
               <div className="scan-layout">
@@ -510,21 +553,21 @@ function App() {
                     type="file"
                     accept="image/*"
                     onChange={(event) => selectFile(event.target.files[0])}
-                    aria-label="Choose a payment QR image"
+                    aria-label={t("Choose a payment QR image")}
                   />
 
                   <div className="camera-controls">
                     {!cameraOpen ? (
                       <button type="button" className="camera-button" onClick={startCamera}>
-                        <span aria-hidden="true">◉</span> Scan with camera
+                        <span aria-hidden="true">◉</span> {t("Scan with camera")}
                       </button>
                     ) : (
                       <div className="camera-view">
-                        <video ref={videoRef} autoPlay playsInline muted aria-label="Live camera preview of QR code" />
-                        <p>Position the complete QR code inside the frame.</p>
+                        <video ref={videoRef} autoPlay playsInline muted aria-label={t("Live camera preview of QR code")} />
+                        <p>{t("Position the complete QR code inside the frame.")}</p>
                         <div className="camera-actions">
-                          <button type="button" className="camera-button" onClick={capturePhoto}>Capture photo</button>
-                          <button type="button" className="text-button" onClick={stopCamera}>Close camera</button>
+                          <button type="button" className="camera-button" onClick={capturePhoto}>{t("Capture photo")}</button>
+                          <button type="button" className="text-button" onClick={stopCamera}>{t("Close camera")}</button>
                         </div>
                       </div>
                     )}
@@ -542,12 +585,12 @@ function App() {
                   >
                     {preview ? (
                       <div className="preview-content">
-                        <img src={preview} alt="Selected QR image preview" />
+                        <img src={preview} alt={t("Selected QR image preview")} />
                         <div className="preview-file-details">
                           <strong>{file.name}</strong>
-                          <span>{(file.size / 1024).toFixed(1)} KB · Ready to inspect</span>
+                          <span>{(file.size / 1024).toFixed(1)} KB · {t("Ready to inspect")}</span>
                         </div>
-                        <button className="text-button" type="button" onClick={resetScan}>Remove image</button>
+                        <button className="text-button" type="button" onClick={resetScan}>{t("Remove image")}</button>
                       </div>
                     ) : (
                       <>
@@ -557,22 +600,22 @@ function App() {
                             <path d="M9 29v9a2 2 0 0 0 2 2h26a2 2 0 0 0 2-2v-9" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
                           </svg>
                         </div>
-                        <h4>Drop your QR image here</h4>
-                        <p>or browse files from your device</p>
+                        <h4>{t("Drop your QR image here")}</h4>
+                        <p>{t("or browse files from your device")}</p>
                         <button className="browse-button" type="button" onClick={() => fileInput.current?.click()}>
-                          Browse files <span aria-hidden="true">↗</span>
+                          {t("Browse files")} <span aria-hidden="true">↗</span>
                         </button>
-                        <span className="file-hint">PNG, JPG or WEBP · Max 10 MB</span>
+                        <span className="file-hint">{t("PNG, JPG or WEBP · Max 10 MB")}</span>
                       </>
                     )}
                   </div>
 
                   <div className="field-group">
-                    <label htmlFor="merchant">MERCHANT NAME</label>
+                    <label htmlFor="merchant">{t("Merchant name").toUpperCase()}</label>
                     <input
                       id="merchant"
                       type="text"
-                      placeholder="e.g. Cafe Mocha, Campus Store..."
+                      placeholder={t("e.g. Cafe Mocha, Campus Store...")}
                       value={merchant}
                       onChange={(event) => {
                         setMerchant(event.target.value);
@@ -582,111 +625,111 @@ function App() {
                         setError("");
                       }}
                     />
-                    <span className="field-hint">Enter the shop name shown on the physical QR stand.</span>
+                    <span className="field-hint">{t("Enter the shop name shown on the physical QR stand.")}</span>
                   </div>
 
                   <div className="field-group location-permission-group">
-                    <label>SHOP PROXIMITY CHECK</label>
+                    <label>{t("Shop proximity check").toUpperCase()}</label>
                     <button className="secondary-button location-button" type="button" onClick={requestLocation}>
-                      {location.status === "available" ? "Refresh my location" : "Allow location for this scan"}
+                      {location.status === "available" ? t("Refresh my location") : t("Allow location for this scan")}
                     </button>
                     <span className="field-hint">
                       {location.position
-                        ? `Location ready · GPS accuracy ±${Math.round(location.position.accuracy)} m`
+                        ? t(`Location ready · GPS accuracy ±${Math.round(location.position.accuracy)} m`)
                         : location.status === "denied"
-                          ? "Permission denied · proximity cannot be checked"
-                          : "Optional · your browser will ask before sharing device coordinates"}
+                          ? t("Permission denied · proximity cannot be checked")
+                          : t("Optional · your browser will ask before sharing device coordinates")}
                     </span>
                   </div>
 
-                  {error && <div className="error-message" role="alert">{error}</div>}
+          {error && <div className="error-message" role="alert">{t(error)}</div>}
 
                   <button className="verify-button" type="button" onClick={verifyQR} disabled={loading}>
-                    {loading ? <><span className="loading-spinner" aria-hidden="true" /> Checking QR signals…</> : <>Verify payment QR <span aria-hidden="true">→</span></>}
+                    {loading ? <><span className="loading-spinner" aria-hidden="true" /> {t("Checking QR signals…")}</> : <>{t("Verify payment QR")} <span aria-hidden="true">→</span></>}
                   </button>
-                  <div className="privacy-note"><span aria-hidden="true">◇</span> Don&apos;t enter your UPI PIN or banking credentials.</div>
+                  <div className="privacy-note"><span aria-hidden="true">◇</span> {t("Don't enter your UPI PIN or banking credentials.")}</div>
                 </div>
 
                 <aside className="scan-side-note">
                   <div className="note-icon" aria-hidden="true">!</div>
-                  <div className="note-title">A quick safety reminder</div>
-                  <p>Argus checks visible QR and payee signals. It does not authenticate the recipient or guarantee payment safety.</p>
+                  <div className="note-title">{t("A quick safety reminder")}</div>
+                  <p>{t("This tool checks visible QR and payee signals. It does not authenticate the recipient or guarantee payment safety.")}</p>
                   <div className="note-divider" />
-                  <div className="note-check"><span>01</span> Compare the name printed at the shop</div>
-                  <div className="note-check"><span>02</span> Confirm the payee again in your UPI app</div>
+                  <div className="note-check"><span>01</span> {t("Compare the name printed at the shop")}</div>
+                  <div className="note-check"><span>02</span> {t("Confirm the payee again in your UPI app")}</div>
                 </aside>
               </div>
             </section>
           ) : (
             <section className="assessment-stage stage-enter" id="assessment-stage" ref={assessmentRef} aria-labelledby="assessment-title">
               <div className="stage-intro assessment-intro">
-                <span className="stage-index">STEP 02 · COMPLETE</span>
-                <h3 id="assessment-title">Your security assessment</h3>
-                <p>Review the detected payee and the signals behind this risk assessment.</p>
+                <span className="stage-index">{t("Step 02 · Complete")}</span>
+                <h3 id="assessment-title">{t("Your security assessment")}</h3>
+                <p>{t("Review the detected payee and the signals behind this risk assessment.")}</p>
               </div>
 
               <div className="result-panel">
                 <div className="panel-heading">
                   <div>
-                    <div className="section-kicker">ASSESSMENT RESULT</div>
-                    <h2>QR security check</h2>
+                    <div className="section-kicker">{t("Assessment result").toUpperCase()}</div>
+                    <h2>{t("QR security check")}</h2>
                   </div>
-                  <span className="live-badge result-ready"><span aria-hidden="true" /> RESULT READY</span>
+                  <span className="live-badge result-ready"><span aria-hidden="true" /> {t("Result ready").toUpperCase()}</span>
                 </div>
 
                 <div className="result-content">
                   <div className={`verdict-card verdict-${verdictClass}`}>
                     <div className="verdict-symbol" aria-hidden="true">!</div>
                     <div className="verdict-copy">
-                      <div className="verdict-overline">RISK ASSESSMENT</div>
-                      <h3>{result.verdict}</h3>
-                      <p>{result.disclaimer || "This assessment cannot guarantee payment safety."}</p>
+                      <div className="verdict-overline">{t("Risk assessment").toUpperCase()}</div>
+                      <h3>{t(result.verdict)}</h3>
+                      <p>{t(result.disclaimer || "This assessment cannot guarantee payment safety.")}</p>
                     </div>
                     <div className="risk-score">
                       <strong>{result.risk_score}</strong>
-                      <span>RISK SCORE / 100</span>
+                      <span>{t("Risk score / 100").toUpperCase()}</span>
                     </div>
                   </div>
 
                   <div className="identity-card">
-                    <div className="identity-title">IDENTITY DETAILS</div>
-                    <div className="identity-row"><span>Entered merchant</span><strong>{result.merchant_name || merchant}</strong></div>
-                    <div className="identity-row"><span>QR payee name</span><strong>{result.payee?.name || "Unavailable"}</strong></div>
-                    <div className="identity-row"><span>UPI ID</span><strong>{result.payee?.vpa || "Unavailable"}</strong></div>
+                    <div className="identity-title">{t("Identity details").toUpperCase()}</div>
+                    <div className="identity-row"><span>{t("Entered merchant")}</span><strong>{result.merchant_name || merchant}</strong></div>
+                    <div className="identity-row"><span>{t("QR payee name")}</span><strong>{result.payee?.name || t("Unavailable")}</strong></div>
+                    <div className="identity-row"><span>{t("UPI ID")}</span><strong>{result.payee?.vpa || t("Unavailable")}</strong></div>
                   </div>
 
                   <div className="identity-card location-result-card">
-                    <div className="identity-title">REGISTERED MERCHANT LOCATION CHECK</div>
-                    <div className="identity-row"><span>Verification status</span><strong>{result.location_verification?.status?.replaceAll("_", " ") || "Unavailable"}</strong></div>
-                    <div className="identity-row"><span>Device location status</span><strong>{result.location_verification?.device_location_status?.replaceAll("_", " ") || "Unavailable"}</strong></div>
-                    <div className="identity-row"><span>Location signal</span><strong>{result.location_verification?.location_message || "Unavailable"}</strong></div>
-                    <div className="identity-row"><span>Detected UPI ID</span><strong>{result.location_verification?.detected_upi_id || "Unavailable"}</strong></div>
-                    <div className="identity-row"><span>Matched shop</span><strong>{result.location_verification?.matched_merchant?.shop_name || "No registered merchant"}</strong></div>
-                    <div className="identity-row"><span>Matched merchant UPI</span><strong>{result.location_verification?.matched_merchant?.upi_id || "—"}</strong></div>
-                    <div className="identity-row"><span>Current location</span><strong>{formatCoordinates(result.location_verification?.current_location)}</strong></div>
-                    <div className="identity-row"><span>Registered location</span><strong>{formatCoordinates(result.location_verification?.registered_location)}</strong></div>
-                    <div className="identity-row"><span>Distance / radius</span><strong>{result.location_verification?.distance_m == null ? "Unavailable" : `${result.location_verification.distance_m} m / ${result.location_verification.radius_m} m`}</strong></div>
-                    <div className="identity-row"><span>GPS accuracy</span><strong>{result.location_verification?.accuracy_m == null ? "Unavailable" : `±${Math.round(result.location_verification.accuracy_m)} m`}</strong></div>
-                    <p className="location-result-message">{result.location_verification?.message || "Location verification was unavailable."}</p>
+                    <div className="identity-title">{t("Registered merchant location check").toUpperCase()}</div>
+                    <div className="identity-row"><span>{t("Verification status")}</span><strong>{t(result.location_verification?.status?.replaceAll("_", " ") || "Unavailable")}</strong></div>
+                    <div className="identity-row"><span>{t("Device location status")}</span><strong>{t(result.location_verification?.device_location_status?.replaceAll("_", " ") || "Unavailable")}</strong></div>
+                    <div className="identity-row"><span>{t("Location signal")}</span><strong>{t(result.location_verification?.location_message || "Unavailable")}</strong></div>
+                    <div className="identity-row"><span>{t("Detected UPI ID")}</span><strong>{result.location_verification?.detected_upi_id || t("Unavailable")}</strong></div>
+                    <div className="identity-row"><span>{t("Matched shop")}</span><strong>{result.location_verification?.matched_merchant?.shop_name || t("No registered merchant")}</strong></div>
+                    <div className="identity-row"><span>{t("Matched merchant UPI")}</span><strong>{result.location_verification?.matched_merchant?.upi_id || "—"}</strong></div>
+                    <div className="identity-row"><span>{t("Current location")}</span><strong>{formatCoordinates(result.location_verification?.current_location, t)}</strong></div>
+                    <div className="identity-row"><span>{t("Registered location")}</span><strong>{formatCoordinates(result.location_verification?.registered_location, t)}</strong></div>
+                    <div className="identity-row"><span>{t("Distance / radius")}</span><strong>{result.location_verification?.distance_m == null ? t("Unavailable") : `${result.location_verification.distance_m} ${t("m")} / ${result.location_verification.radius_m} ${t("m")}`}</strong></div>
+                    <div className="identity-row"><span>{t("GPS accuracy")}</span><strong>{result.location_verification?.accuracy_m == null ? t("Unavailable") : `±${Math.round(result.location_verification.accuracy_m)} ${t("m")}`}</strong></div>
+                    <p className="location-result-message">{t(result.location_verification?.message || "Location verification was unavailable.")}</p>
                   </div>
 
-                  <div className="reasons-title">ASSESSMENT NOTES</div>
+                  <div className="reasons-title">{t("Assessment notes").toUpperCase()}</div>
                   <ul className="reason-list">
                     {result.reasons?.map((reason, index) => (
                       <li key={`${reason.code}-${index}`}>
                         <span aria-hidden="true">!</span>
-                        <div><strong>{reason.code.replaceAll("_", " ")}</strong><p>{reason.message}</p></div>
+                        <div><strong>{t(reason.code.replaceAll("_", " "))}</strong><p>{t(reason.message)}</p></div>
                       </li>
                     ))}
                   </ul>
 
                   <div className="result-warning">
-                    This is a risk assessment, not a guarantee of payment safety. Verify the payee independently in your UPI app before authorizing payment.
+                    {t("This is a risk assessment, not a guarantee of payment safety. Verify the payee independently in your UPI app before authorizing payment.")}
                   </div>
 
                   <div className="assessment-actions">
-                    <button className="secondary-button" type="button" onClick={() => setStage("scan")}>← Back to scan</button>
-                    <button className="verify-button new-scan-button" type="button" onClick={resetScan}>Start a new scan <span aria-hidden="true">↗</span></button>
+                    <button className="secondary-button" type="button" onClick={() => setStage("scan")}>← {t("Back to scan")}</button>
+                    <button className="verify-button new-scan-button" type="button" onClick={resetScan}>{t("Start a new scan")} <span aria-hidden="true">↗</span></button>
                   </div>
                 </div>
               </div>
@@ -697,14 +740,14 @@ function App() {
         <section className="history-section" id="scan-history" ref={historySectionRef} aria-labelledby="scan-history-title">
           <div className="history-heading">
             <div>
-              <div className="section-kicker">THIS SESSION</div>
-              <h2 id="scan-history-title">Recent scan history</h2>
+              <div className="section-kicker">{t("This session")}</div>
+              <h2 id="scan-history-title">{t("Recent scan history")}</h2>
             </div>
             <span className="history-total">{recentScans.length} / {MAX_RECENT_SCANS}</span>
           </div>
 
           {recentScans.length === 0 ? (
-            <p className="history-empty">Completed scans will appear here until you close or refresh this page.</p>
+            <p className="history-empty">{t("Completed scans will appear here until you close or refresh this page.")}</p>
           ) : (
             <div className="history-list">
               {recentScans.map((scan) => {
@@ -717,11 +760,11 @@ function App() {
                     aria-pressed={selectedHistoryId === scan.id}
                     onClick={() => reviewPreviousScan(scan)}
                   >
-                    <span className={`history-verdict verdict-${verdict}`}>{scan.result.verdict || "UNKNOWN"}</span>
+                    <span className={`history-verdict verdict-${verdict}`}>{t(scan.result.verdict || "UNKNOWN")}</span>
                     <span className="history-details">
-                      <strong>{scan.merchantName || "Merchant unavailable"}</strong>
-                      <span>Payee: {scan.result.payee?.name || "Unavailable"}{scan.result.payee?.vpa ? ` · ${scan.result.payee.vpa}` : ""}</span>
-                      <time dateTime={scan.scannedAt}>{new Date(scan.scannedAt).toLocaleString()}</time>
+                      <strong>{scan.merchantName || t("Merchant unavailable")}</strong>
+                      <span>{t("Payee: ")}{scan.result.payee?.name || t("Unavailable")}{scan.result.payee?.vpa ? ` · ${scan.result.payee.vpa}` : ""}</span>
+                      <time dateTime={scan.scannedAt}>{new Date(scan.scannedAt).toLocaleString(language === "ml" ? "ml-IN" : "en-IN")}</time>
                     </span>
                     <span className="history-score">{scan.result.risk_score ?? "—"}<small> / 100</small></span>
                   </button>
@@ -730,19 +773,26 @@ function App() {
             </div>
           )}
         </section>
+        </>}
 
         <footer className="page-footer">
-          <span>ARGUS <span className="brand-dot">/</span> PAYMENT GUARDIAN</span>
-          <span>Built for safer digital payments · Hackathon prototype</span>
+          <img src="/argus-logo.png" alt={t("Argus official logo")} className="footer-logo" />
+          <span>{t("Built for safer digital payments · Hackathon prototype")}</span>
         </footer>
       </main>
     </div>
   );
 }
 
-function formatCoordinates(location) {
-  if (!location) return "Unavailable";
+function formatCoordinates(location, t) {
+  if (!location) return t("Unavailable");
   return `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`;
+}
+
+function routeFromPath(path) {
+  if (path === "/merchant") return "merchant";
+  if (path === "/admin") return "admin";
+  return "home";
 }
 
 export default App;
