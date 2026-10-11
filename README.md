@@ -104,14 +104,16 @@ count does not establish that a QR or place is a scam. Users must explicitly
 choose to share browser location or click a point on the map. OpenStreetMap
 tiles require an internet connection.
 
-For the support chat, install backend requirements (including `httpx`) and
-set your Groq key in the environment of the terminal that runs FastAPI:
+For the support chat, install backend requirements, copy `.env.example` to
+`.env` in the repository root, and paste your Groq key into that `.env` file:
 
 ```bash
-export GROQ_API_KEY='your-groq-api-key'
+cp .env.example .env
 uvicorn main:app --reload
 ```
 
-Optionally set `GROQ_MODEL` to a model available to your Groq account. The key
-stays on the server and is never sent to the browser. Without the key, the
-chat UI displays a setup message; the rest of Argus still works.
+Set `GROQ_API_KEY=your-groq-api-key` in `.env` (no quotes are needed). Optionally
+set `GROQ_MODEL` there to a model available to your Groq account. The key stays
+on the server and is never sent to the browser. `.env` is ignored by Git; never
+commit it. Without the key, the chat UI displays a setup message; the rest of
+Argus still works.
