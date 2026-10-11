@@ -76,6 +76,11 @@ def verify_location(
     accuracy = max(0.0, accuracy_m or 0.0)
     radius = float(merchant["radius_m"])
     result["distance_m"] = round(distance, 1)
+    # Same/same-pin coordinates should not become uncertain solely because
+    # the browser reports an accuracy circle larger than the shop radius.
+    if distance <= 1.0:
+        result.update(status="LOCATION_MATCH", message="The device location matches the registered merchant location.")
+        return result
     # Mark outside only if even the nearest edge of the reported accuracy circle
     # lies beyond the configured merchant radius.
     if distance - accuracy > radius:

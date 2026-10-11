@@ -20,7 +20,7 @@ function coordinates(location) {
   return `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`;
 }
 
-export default function AssessmentResult({ result, merchantName, t, onNewScan, onHistory, onReport }) {
+export default function AssessmentResult({ result, merchantName, t, imagePreview, onNewScan, onHistory, onReport }) {
   const reasons = result.reasons || [];
   const payeeReasons = reasons.filter((reason) => PAYEE_CODES.has(reason.code));
   const visualReasons = reasons.filter((reason) => VISUAL_CODES.has(reason.code));
@@ -39,7 +39,7 @@ export default function AssessmentResult({ result, merchantName, t, onNewScan, o
   const tamperTone = !tamperReason || tamperReason.code === "TAMPER_LOW" ? "good" : tamperReason.code === "TAMPER_UNAVAILABLE" ? "neutral" : tamperReason.code === "TAMPER_HIGH" ? "risk" : "caution";
   const tamperStatus = !tamperReason ? t("Unavailable") : tamperReason.code === "TAMPER_UNAVAILABLE" ? t("Not checked") : tamperReason.code === "TAMPER_LOW" ? t("Few signals") : tamperReason.code === "TAMPER_HIGH" ? t("Strong signals observed") : t("Possible signals observed");
   const locationStatus = location?.status;
-  const locationLabel = locationStatus === "LOCATION_MATCH" ? t("Within registered radius") : locationStatus === "LOCATION_MISMATCH" ? t("Outside registered radius") : locationStatus === "LOCATION_UNCERTAIN" ? t("Location uncertain") : locationStatus === "UPI_NOT_VERIFIED" ? t("UPI not verified") : locationStatus === "UNKNOWN_MERCHANT" ? t("No registered merchant") : t("Not checked");
+  const locationLabel = locationStatus === "LOCATION_MATCH" ? t("Location certain") : locationStatus === "LOCATION_MISMATCH" ? t("Outside registered radius") : locationStatus === "LOCATION_UNCERTAIN" ? t("Location uncertain") : locationStatus === "UPI_NOT_VERIFIED" ? t("UPI not verified") : locationStatus === "UNKNOWN_MERCHANT" ? t("No registered merchant") : t("Not checked");
   const locationTone = locationStatus === "LOCATION_MATCH" ? "good" : locationStatus === "LOCATION_MISMATCH" ? "risk" : ["LOCATION_UNCERTAIN", "UPI_NOT_VERIFIED"].includes(locationStatus) ? "caution" : "neutral";
   const locationRows = [];
   if (location?.current_location) locationRows.push([t("Current location"), coordinates(location.current_location)]);
@@ -64,6 +64,11 @@ export default function AssessmentResult({ result, merchantName, t, onNewScan, o
       </div>
       <p className="report-disclaimer">{t(result.disclaimer || "This assessment cannot guarantee payment safety.")}</p>
     </header>
+
+    {imagePreview && <figure className="assessment-qr-image">
+      <img src={imagePreview} alt={t("Selected QR image preview")} />
+      <figcaption>{t("QR image reviewed")}</figcaption>
+    </figure>}
 
     <section className="report-comparison" aria-labelledby="comparison-title">
       <div className="report-section-heading"><span>01</span><h3 id="comparison-title">{t("Merchant and payee")}</h3></div>

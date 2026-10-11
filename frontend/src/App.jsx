@@ -35,6 +35,7 @@ function App() {
 
   const fileInput = useRef(null);
   const historyCounterRef = useRef(0);
+  const imagePreviewUrlsRef = useRef(new Set());
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const menuButtonRef = useRef(null);
@@ -88,7 +89,9 @@ function App() {
     }
 
     setFile(selectedFile);
-    setPreview(URL.createObjectURL(selectedFile));
+    const imagePreview = URL.createObjectURL(selectedFile);
+    imagePreviewUrlsRef.current.add(imagePreview);
+    setPreview(imagePreview);
     setResult(null);
     setStage("scan");
     setSelectedHistoryId(null);
@@ -136,15 +139,12 @@ function App() {
   }, [cameraOpen]);
 
   useEffect(() => {
+    const previewUrls = imagePreviewUrlsRef.current;
     return () => {
       streamRef.current?.getTracks().forEach((track) => track.stop());
+      previewUrls.forEach((url) => URL.revokeObjectURL(url));
     };
   }, []);
-
-  useEffect(() => {
-    if (!preview) return undefined;
-    return () => URL.revokeObjectURL(preview);
-  }, [preview]);
 
   useEffect(() => {
     if (!drawerOpen) return undefined;
@@ -249,11 +249,19 @@ function App() {
         id: `scan-${historyCounterRef.current}`,
         scannedAt: new Date().toISOString(),
         merchantName: merchant.trim(),
+        imagePreview: preview,
         result: data,
       };
-      setRecentScans((scans) =>
-        [historyEntry, ...scans].slice(0, MAX_RECENT_SCANS),
-      );
+      const updatedScans = [historyEntry, ...recentScans].slice(0, MAX_RECENT_SCANS);
+      setRecentScans(updatedScans);
+      const retainedPreviews = new Set(updatedScans.map((scan) => scan.imagePreview).filter(Boolean));
+      if (preview) retainedPreviews.add(preview);
+      imagePreviewUrlsRef.current.forEach((url) => {
+        if (!retainedPreviews.has(url)) {
+          URL.revokeObjectURL(url);
+          imagePreviewUrlsRef.current.delete(url);
+        }
+      });
       setSelectedHistoryId(historyEntry.id);
       setActiveSection("scan");
       window.setTimeout(() => {
@@ -283,7 +291,7 @@ function App() {
   function reviewPreviousScan(scan) {
     stopCamera();
     setFile(null);
-    setPreview("");
+    setPreview(scan.imagePreview || "");
     if (fileInput.current) fileInput.current.value = "";
     setMerchant(scan.merchantName);
     setResult(scan.result);
@@ -679,7 +687,7 @@ function App() {
             </section>
           ) : (
             <section className="assessment-stage stage-enter" id="assessment-stage" ref={assessmentRef} aria-labelledby="assessment-title">
-              <AssessmentResult result={result} merchantName={merchant} t={t}
+              <AssessmentResult result={result} merchantName={merchant} t={t} imagePreview={preview}
                 onNewScan={resetScan} onHistory={() => openSection("history")}
                 onReport={() => navigate("/hotspots")} />
             </section>

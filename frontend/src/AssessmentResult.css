@@ -17,6 +17,9 @@
 .risk-track > i { position: absolute; top: 50%; width: 12px; height: 12px; border: 2px solid var(--bg); border-radius: 50%; background: var(--verdict-color); box-shadow: 0 0 0 1px var(--verdict-color); transform: translate(-50%,-50%); }
 .risk-labels { margin-top: 6px; display: flex; justify-content: space-between; color: var(--muted-dim); font-size: 9px; font-variant-numeric: tabular-nums; }
 .report-disclaimer { grid-column: 1/-1; margin: 10px 0 0; color: var(--muted); font-size: 10px; line-height: 1.6; }
+.assessment-qr-image { margin: 0; padding: 16px 0; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid var(--line-strong); }
+.assessment-qr-image img { width: min(220px, 42%); max-height: 180px; object-fit: contain; border: 1px solid var(--line); border-radius: 7px; background: #11110f; }
+.assessment-qr-image figcaption { color: var(--muted); font-size: 10px; }
 .report-comparison, .report-evidence { padding: 24px 0; border-bottom: 1px solid var(--line-strong); }
 .report-section-heading { margin-bottom: 16px; display: flex; align-items: baseline; gap: 10px; }
 .report-section-heading > span { color: var(--amber-deep); font: 600 10px 'Space Grotesk',sans-serif; }
@@ -59,4 +62,4 @@
 .report-actions > button:not(.verify-button):hover { color: var(--amber-light); border-color: var(--amber); }
 .report-actions .report-hotspot-action { margin-left: auto; }
 @media (max-width: 760px) { .evidence-list { grid-template-columns: 1fr; }.evidence-group,.evidence-group + .evidence-group { padding: 14px 0; border-left: 0; }.evidence-group + .evidence-group { border-top: 1px solid var(--line); }.evidence-group > p { min-height: 0; } }
-@media (max-width: 520px) { .report-verdict { padding-top: 21px; column-gap: 10px; }.report-verdict h2 { font-size: 34px; }.risk-display { min-width: 77px; }.risk-display strong { font-size: 29px; }.comparison-flow { grid-template-columns: 1fr; gap: 9px; }.comparison-link { min-height: 19px; }.comparison-link i { max-width: 27px; flex: initial; }.comparison-flow strong { font-size: 14px; }.comparison-upi { align-items: flex-start; flex-direction: column; }.comparison-upi strong { text-align: left; }.report-actions { align-items: flex-start; flex-direction: column; }.report-actions .verify-button { width: 100%; }.report-actions .report-hotspot-action { margin-left: 0; } }
+@media (max-width: 520px) { .report-verdict { padding-top: 21px; column-gap: 10px; }.report-verdict h2 { font-size: 34px; }.risk-display { min-width: 77px; }.risk-display strong { font-size: 29px; }.assessment-qr-image img { width: 38%; max-height: 130px; }.comparison-flow { grid-template-columns: 1fr; gap: 9px; }.comparison-link { min-height: 19px; }.comparison-link i { max-width: 27px; flex: initial; }.comparison-flow strong { font-size: 14px; }.comparison-upi { align-items: flex-start; flex-direction: column; }.comparison-upi strong { text-align: left; }.report-actions { align-items: flex-start; flex-direction: column; }.report-actions .verify-button { width: 100%; }.report-actions .report-hotspot-action { margin-left: 0; } }

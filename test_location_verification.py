@@ -37,6 +37,12 @@ class LocationVerificationTests(unittest.TestCase):
         result = verify_location("shop@okbank", 12.9729, 77.5946, 30, "available", VERIFIED_MERCHANT)
         self.assertEqual(result["status"], "LOCATION_UNCERTAIN")
 
+    def test_same_registered_coordinates_are_certain_despite_large_accuracy_radius(self):
+        merchant = {**VERIFIED_MERCHANT, "radius_m": 25}
+        result = verify_location("shop@okbank", 12.9716, 77.5946, 100, "available", merchant)
+        self.assertEqual(result["status"], "LOCATION_MATCH")
+        self.assertEqual(result["distance_m"], 0)
+
     def test_permission_denial_is_reported_without_coordinates(self):
         result = verify_location("shop@okbank", None, None, None, "denied", VERIFIED_MERCHANT)
         self.assertEqual(result["status"], "LOCATION_PERMISSION_DENIED")
