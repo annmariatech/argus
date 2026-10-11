@@ -1,0 +1,4 @@
+image_path,label,group_id,notes
+data/images/sample_001.png,0,sticker_A,Original inspected sticker
+data/images/sample_002.png,1,sticker_B,Visible overlay added to test sticker
+data/images/sample_003.png,0,sticker_C,Clean sticker photographed at an angle
