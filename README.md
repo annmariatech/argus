@@ -123,4 +123,47 @@ Users should independently verify the payment recipient and transaction details 
 **Team VORTEX**
 
 Project: **ARGUS — QR Payment Security Assessment**
+## Architecture
+
+```mermaid
+flowchart TB
+  subgraph Client["React web app (English, Malayalam)"]
+    A1[Scan QR]
+    A2[Results]
+    A3[Merchant mode]
+    A4[Hotspot map]
+  end
+
+  subgraph Backend["FastAPI backend"]
+    direction TB
+    B1[Scan API]
+    B2[Merchant API]
+    B3[Hotspot API]
+    B4[Chat API]
+    subgraph Pipeline["Scan pipeline modules"]
+      direction LR
+      C1[UPI parser]
+      C2[Name match]
+      C3[Tamper check - OpenCV]
+      C4[Location check - Haversine]
+    end
+    R["Risk engine: SAFE / SUSPICIOUS / DANGER"]
+    B1 --> Pipeline
+    Pipeline --> R
+  end
+
+  D1[(Merchant DB)]
+  D2[(Report store - in memory)]
+  D3[Groq API]
+  D4[OpenStreetMap tiles]
+
+  Client -- "REST + JSON" --> Backend
+  B2 --> D1
+  R --> D1
+  B3 --> D2
+  B4 --> D3
+  A4 -. "map tiles" .-> D4
+```
+
+Argus provides risk assessments, not guarantees of payment safety.
 
