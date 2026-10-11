@@ -1,5 +1,7 @@
 .admin-page { padding: 45px 0 72px; max-width: 1050px; margin: 0 auto; }
 .admin-page-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 30px; }
+.admin-heading-intro { display: flex; align-items: center; gap: 23px; }
+.role-admin { color: #b9a15d; }
 .admin-page-heading h1 { margin: 10px 0; font: 600 clamp(28px, 4vw, 40px)/1.1 'Space Grotesk', sans-serif; }
 .admin-page-heading p { max-width: 620px; color: var(--muted); line-height: 1.65; }
 .admin-access-card, .admin-merchant-card, .admin-empty-state { padding: clamp(20px, 4vw, 34px); border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
@@ -27,6 +29,7 @@
 .admin-back-link { margin-top: 25px; border: 0; padding: 0; color: var(--muted); background: transparent; text-decoration: underline; }
 @media (max-width: 620px) {
   .admin-page-heading { align-items: start; flex-direction: column; }
+  .admin-heading-intro { align-items: flex-start; gap: 13px; }
   .admin-merchant-title { flex-direction: column; }
   .admin-merchant-details { grid-template-columns: 1fr; }
   .admin-toolbar { align-items: start; flex-direction: column; }

@@ -90,3 +90,28 @@ const response = await fetch("http://localhost:8000/api/scan", {
 });
 const verdict = await response.json();
 ```
+
+## Scam Hotspot Map and support chat
+
+The **Scam Hotspot Map** page groups user-submitted `DANGER` scan reports by
+distance and displays them on Leaflet/OpenStreetMap. Yellow means one report,
+orange means two or three, and red means more than three reports in a group.
+The grouping radius defaults to 250 metres and can be set with
+`ARGUS_HOTSPOT_RADIUS_M` (25–10,000 metres). Reports and counts live only in
+the FastAPI process memory, so they reset when the server restarts and are not
+shared across multiple server workers. They are explicitly unverified; a high
+count does not establish that a QR or place is a scam. Users must explicitly
+choose to share browser location or click a point on the map. OpenStreetMap
+tiles require an internet connection.
+
+For the support chat, install backend requirements (including `httpx`) and
+set your Groq key in the environment of the terminal that runs FastAPI:
+
+```bash
+export GROQ_API_KEY='your-groq-api-key'
+uvicorn main:app --reload
+```
+
+Optionally set `GROQ_MODEL` to a model available to your Groq account. The key
+stays on the server and is never sent to the browser. Without the key, the
+chat UI displays a setup message; the rest of Argus still works.

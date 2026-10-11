@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { getPendingMerchants, setMerchantVerified } from "./argusApi";
+import RoleIllustration from "./RoleIllustration";
 import "./AdminMode.css";
 
 function AdminMode({ onBack, t }) {
@@ -41,10 +42,13 @@ function AdminMode({ onBack, t }) {
   return (
     <section className="admin-page stage-enter" aria-labelledby="admin-page-title">
       <div className="admin-page-heading">
-        <div>
-          <div className="section-kicker">{t("ADMIN MODE")}</div>
-          <h1 id="admin-page-title">{t("Merchant verification")}</h1>
-          <p>{t("Review pending UPI claims and record the result of your independent verification.")}</p>
+        <div className="admin-heading-intro">
+          <RoleIllustration kind="admin" t={t} />
+          <div>
+            <div className="section-kicker">{t("ADMIN MODE")}</div>
+            <h1 id="admin-page-title">{t("Merchant verification")}</h1>
+            <p>{t("Review pending UPI claims and record the result of your independent verification.")}</p>
+          </div>
         </div>
         <button className="secondary-button" type="button" onClick={onBack}>{t("Back to scan")}</button>
       </div>

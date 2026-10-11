@@ -1,0 +1,29 @@
+.hotspots-page { max-width: 1120px; margin: 0 auto; padding: 58px 0 90px; }
+.hotspots-heading { max-width: 760px; margin-bottom: 26px; }
+.hotspots-heading h1 { margin: 10px 0 12px; font: 600 clamp(32px, 5vw, 52px)/1.08 'Space Grotesk', sans-serif; }
+.hotspots-heading p, .hotspot-report-card p { color: var(--muted); line-height: 1.7; }
+.hotspot-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 22px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 14px 14px 0 0; background: var(--surface); color: var(--muted); font-size: 12px; }
+.hotspot-legend > span { display: inline-flex; align-items: center; gap: 8px; }
+.legend-dot { width: 13px; height: 13px; display: inline-block; border-radius: 50%; }
+.hotspot-map-frame { overflow: hidden; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 16px 16px; }
+.hotspot-map { width: 100%; height: min(58vh, 560px); min-height: 330px; background: #d6d2c7; }
+.hotspot-map .leaflet-control-attribution { font-size: 9px; }
+.hotspot-marker-wrap { border: 0; background: transparent; }
+.hotspot-marker { width: 38px; height: 38px; display: grid; place-items: center; border: 2px solid rgba(255,255,255,.95); border-radius: 50%; box-shadow: 0 3px 12px rgba(0,0,0,.48); color: #17140d; font-weight: 800; }
+.hotspot-yellow, .legend-dot.hotspot-yellow { background: #ffd43b; }
+.hotspot-orange, .legend-dot.hotspot-orange { background: #ff8a32; }
+.hotspot-red, .legend-dot.hotspot-red { background: #f04452; color: white; }
+.hotspot-pin { background: #4aa6ff; color: white; }
+.hotspot-disclaimer { margin: 13px 2px 30px; color: var(--muted-dim); font-size: 11px; line-height: 1.6; }
+.hotspot-report-card { padding: 25px; border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(140deg, rgba(245,189,50,.06), transparent 60%), var(--surface); }
+.hotspot-report-card h2 { margin: 8px 0; font: 600 24px 'Space Grotesk', sans-serif; }
+.hotspot-report-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.hotspot-report-actions button:disabled { opacity: .48; cursor: not-allowed; }
+.pin-mode-active { border-color: var(--amber) !important; color: var(--amber-light) !important; }
+.selected-pin, .hotspot-status { margin: 14px 0 0; color: var(--amber-light) !important; font-size: 12px; }
+.hotspot-map .leaflet-popup-content-wrapper, .hotspot-map .leaflet-popup-tip { background: #201f1a; color: #f3f0e8; }
+.hotspot-map .leaflet-popup-content { max-width: 270px; line-height: 1.5; }
+.hotspot-map .leaflet-popup-content ul { max-height: 180px; overflow: auto; padding-left: 18px; }
+.hotspot-map .leaflet-popup-content li { margin: 7px 0; }
+.hotspot-map .leaflet-popup-content small { color: #b7b2a5; }
+@media (max-width: 600px) { .hotspots-page { padding-top: 36px; } .hotspot-map { height: 54vh; min-height: 300px; } .hotspot-report-card { padding: 18px; } }

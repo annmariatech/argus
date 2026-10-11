@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getMerchant, loginMerchant, logoutMerchant, registerMerchant, updateMerchant } from "./argusApi";
+import RoleIllustration from "./RoleIllustration";
 import "./MerchantMode.css";
 
 const blankProfile = { shop_name: "", upi_id: "", latitude: "", longitude: "", radius_m: "150" };
@@ -91,10 +92,13 @@ function MerchantMode({ onBack, t }) {
   return (
     <section className="merchant-mode stage-enter" aria-labelledby="merchant-mode-title">
       <div className="merchant-heading">
-        <div>
-          <div className="section-kicker">{t("MERCHANT MODE")}</div>
-          <h2 id="merchant-mode-title">{token ? t("Manage your shop") : t("Register your shop")}</h2>
-          <p>{t("Create an account to add or update the UPI ID and location used in QR checks.")}</p>
+        <div className="merchant-heading-intro">
+          <RoleIllustration kind="merchant" t={t} />
+          <div>
+            <div className="section-kicker">{t("MERCHANT MODE")}</div>
+            <h2 id="merchant-mode-title">{token ? t("Manage your shop") : t("Register your shop")}</h2>
+            <p>{t("Create an account to add or update the UPI ID and location used in QR checks.")}</p>
+          </div>
         </div>
         <button className="secondary-button" type="button" onClick={onBack}>← {t("Back to scan")}</button>
       </div>

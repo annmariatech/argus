@@ -9,6 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from qr_verify import build_verdict, decode_qr_image_bytes, extract_upi_payee
 from tamper_detector import analyze_tampering
 from merchant_api import final_location_assessment, router as merchant_router
+from hotspot_api import router as hotspot_router
+from support_api import router as support_router
 
 app = FastAPI(
     title="Argus QR Verification API",
@@ -25,6 +27,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(merchant_router)
+app.include_router(hotspot_router)
+app.include_router(support_router)
 
 
 @app.get("/health")

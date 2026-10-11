@@ -2,8 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { scanQR } from "./argusApi";
 import MerchantMode from "./MerchantMode";
 import AdminMode from "./AdminMode";
+import Hotspots from "./Hotspots";
+import SupportChat from "./SupportChat";
+import AssessmentResult from "./AssessmentResult";
 import { makeTranslator } from "./i18n";
 import "./App.css";
+import "./VisualSystem.css";
 
 const MAX_RECENT_SCANS = 5;
 
@@ -22,7 +26,7 @@ function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeSection, setActiveSection] = useState(() => {
     const currentRoute = routeFromPath(window.location.pathname);
-    return currentRoute === "merchant" || currentRoute === "admin" ? currentRoute : "scan";
+    return currentRoute === "merchant" || currentRoute === "admin" || currentRoute === "hotspots" ? currentRoute : "scan";
   });
   const [page, setPage] = useState(() => routeFromPath(window.location.pathname));
   const [language, setLanguage] = useState(() => window.localStorage.getItem("argus-language") || "en");
@@ -51,8 +55,8 @@ function App() {
 
   useEffect(() => {
     document.documentElement.lang = language;
-    document.title = t(page === "merchant" ? "Merchant Mode" : page === "admin" ? "Admin Mode" : "Payment Security");
-  }, [language, page, t]);
+    document.title = "argus | payment security";
+  }, [language]);
 
   function navigate(path) {
     if (window.location.pathname !== path) window.history.pushState({}, "", path);
@@ -61,6 +65,7 @@ function App() {
     if (path === "/") setActiveSection("scan");
     if (path === "/merchant") setActiveSection("merchant");
     if (path === "/admin") setActiveSection("admin");
+    if (path === "/hotspots") setActiveSection("hotspots");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -294,6 +299,7 @@ function App() {
   function openSection(section) {
     if (section === "merchant") return navigate("/merchant");
     if (section === "admin") return navigate("/admin");
+    if (section === "hotspots") return navigate("/hotspots");
     if (section === "scan" || section === "history") {
       if (window.location.pathname !== "/") window.history.pushState({}, "", "/");
       setPage("home");
@@ -335,8 +341,6 @@ function App() {
       { enableHighAccuracy: false, timeout: 30000, maximumAge: 60000 },
     );
   }
-
-  const verdictClass = result?.verdict ? result.verdict.toLowerCase() : "";
 
   return (
     <div className="app-shell" lang={language}>
@@ -411,6 +415,13 @@ function App() {
           >
             <span aria-hidden="true">◇</span> {t("Admin Mode")}
           </a>
+          <a
+            className={`nav-item ${activeSection === "hotspots" ? "active" : ""}`}
+            href="/hotspots"
+            onClick={(event) => { event.preventDefault(); openSection("hotspots"); }}
+          >
+            <span aria-hidden="true">◎</span> {t("Scam Hotspot Map")}
+          </a>
         </nav>
 
         <div className="sidebar-bottom">
@@ -436,7 +447,7 @@ function App() {
           </button>
           <div className="breadcrumb">
             <img src="/argus-logo.png" alt={t("Argus official logo")} className="breadcrumb-logo" />
-            <span>/</span> {t(page === "merchant" ? "Merchant Mode" : page === "admin" ? "Admin Mode" : "Payment Security")}
+            <span>/</span> {t(page === "merchant" ? "Merchant Mode" : page === "admin" ? "Admin Mode" : page === "hotspots" ? "Scam Hotspot Map" : "Payment Security")}
           </div>
           <div className="topbar-tag">
             <span aria-hidden="true" /> {t("QR Risk Workspace")}
@@ -447,6 +458,13 @@ function App() {
         </header>
         {page === "merchant" && <MerchantMode onBack={() => navigate("/")} t={t} />}
         {page === "admin" && <AdminMode onBack={() => navigate("/")} t={t} />}
+        {page === "hotspots" && <Hotspots t={t} pendingReport={result?.verdict === "DANGER" ? {
+          verdict: result.verdict,
+          risk_score: result.risk_score,
+          merchant_name: result.merchant_name || merchant,
+          payee_name: result.payee?.name || "",
+          reasons: (result.reasons || []).map((reason) => reason.code),
+        } : null} />}
         {page === "home" && <>
         <section className="hero" aria-labelledby="hero-title">
           <div className="hero-grid" aria-hidden="true" />
@@ -457,7 +475,6 @@ function App() {
             <div className="hero-brand-signature">
               <img src="/argus-logo.png" alt={t("Argus official logo")} className="signature-logo" />
             </div>
-            <div className="eyebrow"><span /> {t("Your payment safety check")}</div>
             <h1 id="hero-title">
               {t("Pause. Scan.")}<br />
               <span className="verify-word">{t("Verify.")}</span>
@@ -662,77 +679,9 @@ function App() {
             </section>
           ) : (
             <section className="assessment-stage stage-enter" id="assessment-stage" ref={assessmentRef} aria-labelledby="assessment-title">
-              <div className="stage-intro assessment-intro">
-                <span className="stage-index">{t("Step 02 · Complete")}</span>
-                <h3 id="assessment-title">{t("Your security assessment")}</h3>
-                <p>{t("Review the detected payee and the signals behind this risk assessment.")}</p>
-              </div>
-
-              <div className="result-panel">
-                <div className="panel-heading">
-                  <div>
-                    <div className="section-kicker">{t("Assessment result").toUpperCase()}</div>
-                    <h2>{t("QR security check")}</h2>
-                  </div>
-                  <span className="live-badge result-ready"><span aria-hidden="true" /> {t("Result ready").toUpperCase()}</span>
-                </div>
-
-                <div className="result-content">
-                  <div className={`verdict-card verdict-${verdictClass}`}>
-                    <div className="verdict-symbol" aria-hidden="true">!</div>
-                    <div className="verdict-copy">
-                      <div className="verdict-overline">{t("Risk assessment").toUpperCase()}</div>
-                      <h3>{t(result.verdict)}</h3>
-                      <p>{t(result.disclaimer || "This assessment cannot guarantee payment safety.")}</p>
-                    </div>
-                    <div className="risk-score">
-                      <strong>{result.risk_score}</strong>
-                      <span>{t("Risk score / 100").toUpperCase()}</span>
-                    </div>
-                  </div>
-
-                  <div className="identity-card">
-                    <div className="identity-title">{t("Identity details").toUpperCase()}</div>
-                    <div className="identity-row"><span>{t("Entered merchant")}</span><strong>{result.merchant_name || merchant}</strong></div>
-                    <div className="identity-row"><span>{t("QR payee name")}</span><strong>{result.payee?.name || t("Unavailable")}</strong></div>
-                    <div className="identity-row"><span>{t("UPI ID")}</span><strong>{result.payee?.vpa || t("Unavailable")}</strong></div>
-                  </div>
-
-                  <div className="identity-card location-result-card">
-                    <div className="identity-title">{t("Registered merchant location check").toUpperCase()}</div>
-                    <div className="identity-row"><span>{t("Verification status")}</span><strong>{t(result.location_verification?.status?.replaceAll("_", " ") || "Unavailable")}</strong></div>
-                    <div className="identity-row"><span>{t("Device location status")}</span><strong>{t(result.location_verification?.device_location_status?.replaceAll("_", " ") || "Unavailable")}</strong></div>
-                    <div className="identity-row"><span>{t("Location signal")}</span><strong>{t(result.location_verification?.location_message || "Unavailable")}</strong></div>
-                    <div className="identity-row"><span>{t("Detected UPI ID")}</span><strong>{result.location_verification?.detected_upi_id || t("Unavailable")}</strong></div>
-                    <div className="identity-row"><span>{t("Matched shop")}</span><strong>{result.location_verification?.matched_merchant?.shop_name || t("No registered merchant")}</strong></div>
-                    <div className="identity-row"><span>{t("Matched merchant UPI")}</span><strong>{result.location_verification?.matched_merchant?.upi_id || "—"}</strong></div>
-                    <div className="identity-row"><span>{t("Current location")}</span><strong>{formatCoordinates(result.location_verification?.current_location, t)}</strong></div>
-                    <div className="identity-row"><span>{t("Registered location")}</span><strong>{formatCoordinates(result.location_verification?.registered_location, t)}</strong></div>
-                    <div className="identity-row"><span>{t("Distance / radius")}</span><strong>{result.location_verification?.distance_m == null ? t("Unavailable") : `${result.location_verification.distance_m} ${t("m")} / ${result.location_verification.radius_m} ${t("m")}`}</strong></div>
-                    <div className="identity-row"><span>{t("GPS accuracy")}</span><strong>{result.location_verification?.accuracy_m == null ? t("Unavailable") : `±${Math.round(result.location_verification.accuracy_m)} ${t("m")}`}</strong></div>
-                    <p className="location-result-message">{t(result.location_verification?.message || "Location verification was unavailable.")}</p>
-                  </div>
-
-                  <div className="reasons-title">{t("Assessment notes").toUpperCase()}</div>
-                  <ul className="reason-list">
-                    {result.reasons?.map((reason, index) => (
-                      <li key={`${reason.code}-${index}`}>
-                        <span aria-hidden="true">!</span>
-                        <div><strong>{t(reason.code.replaceAll("_", " "))}</strong><p>{t(reason.message)}</p></div>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <div className="result-warning">
-                    {t("This is a risk assessment, not a guarantee of payment safety. Verify the payee independently in your UPI app before authorizing payment.")}
-                  </div>
-
-                  <div className="assessment-actions">
-                    <button className="secondary-button" type="button" onClick={() => setStage("scan")}>← {t("Back to scan")}</button>
-                    <button className="verify-button new-scan-button" type="button" onClick={resetScan}>{t("Start a new scan")} <span aria-hidden="true">↗</span></button>
-                  </div>
-                </div>
-              </div>
+              <AssessmentResult result={result} merchantName={merchant} t={t}
+                onNewScan={resetScan} onHistory={() => openSection("history")}
+                onReport={() => navigate("/hotspots")} />
             </section>
           )}
         </section>
@@ -779,19 +728,16 @@ function App() {
           <img src="/argus-logo.png" alt={t("Argus official logo")} className="footer-logo" />
           <span>{t("Built for safer digital payments · Hackathon prototype")}</span>
         </footer>
+        <SupportChat t={t} />
       </main>
     </div>
   );
 }
 
-function formatCoordinates(location, t) {
-  if (!location) return t("Unavailable");
-  return `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`;
-}
-
 function routeFromPath(path) {
   if (path === "/merchant") return "merchant";
   if (path === "/admin") return "admin";
+  if (path === "/hotspots") return "hotspots";
   return "home";
 }
 

@@ -1,5 +1,8 @@
 .merchant-mode { padding: 35px 0 58px; }
 .merchant-heading { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 23px; }
+.merchant-heading-intro { display: flex; align-items: center; gap: 23px; }
+.role-illustration { width: 108px; height: 88px; flex: 0 0 auto; color: var(--amber-light); stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: .88; }
+.role-merchant { color: #dabb65; }
 .merchant-heading h2 { margin: 9px 0; font: 600 clamp(26px, 4vw, 38px)/1.1 'Space Grotesk', sans-serif; }
 .merchant-heading p { max-width: 600px; color: var(--muted); line-height: 1.65; }
 .merchant-card { max-width: 880px; padding: clamp(20px, 4vw, 36px); border: 1px solid var(--line); border-radius: 18px; background: var(--surface); }
@@ -20,4 +23,4 @@
 .merchant-status strong { color: var(--amber-light); }
 .merchant-message { color: var(--green); }
 .merchant-actions { display: flex; align-items: center; gap: 20px; }
-@media (max-width: 620px) { .merchant-heading { align-items: start; flex-direction: column; } .merchant-form-grid, .merchant-coordinate-fields { grid-template-columns: 1fr; } .merchant-radius-row { max-width: none; } }
+@media (max-width: 620px) { .merchant-heading { align-items: start; flex-direction: column; } .merchant-heading-intro { align-items: flex-start; gap: 13px; } .role-illustration { width: 72px; height: 65px; } .merchant-form-grid, .merchant-coordinate-fields { grid-template-columns: 1fr; } .merchant-radius-row { max-width: none; } }

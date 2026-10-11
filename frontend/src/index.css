@@ -12,6 +12,10 @@
   font-weight: 400;
   font-size: 14px;
   scroll-behavior: smooth;
+  line-height: 1.5;
+  color-scheme: dark;
+  color-scheme: dark;
+  line-height: 1.5;
 }
 
 * {
@@ -36,6 +40,16 @@ body,
 button,
 input {
   font-family: 'DM Sans', sans-serif;
+}
+
+h1, h2, h3, h4 {
+  font-family: 'Space Grotesk', 'DM Sans', sans-serif;
+  text-wrap: balance;
+}
+
+h1, h2, h3, h4 {
+  font-family: 'Space Grotesk', 'DM Sans', sans-serif;
+  text-wrap: balance;
 }
 
 button,

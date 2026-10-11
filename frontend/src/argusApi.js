@@ -51,3 +51,8 @@ async function adminRequest(path, token, method = "GET") {
 export const getPendingMerchants = (token) => adminRequest("/api/merchant/operator/pending", token);
 export const setMerchantVerified = (token, merchantId, verified) =>
   adminRequest(`/api/merchant/operator/verify-upi/${merchantId}?verified=${verified}`, token, "POST");
+
+export const getHotspots = () => request("/api/hotspots");
+export const submitHotspotReport = (body) => request("/api/hotspots/reports", { method: "POST", body });
+export const sendSupportMessage = (message, history = []) =>
+  request("/api/support/chat", { method: "POST", body: { message, history } });
