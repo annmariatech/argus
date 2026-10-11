@@ -1,117 +1,124 @@
-# Argus
+# ARGUS — QR Payment Security Assessment
 
-An on-device vision prototype for assessing payment QR codes for possible
-tampering and payee/merchant mismatches.
+**ARGUS** is a web application that analyzes payment QR codes to identify potential signs of tampering and suspicious payment details before a user makes a transaction.
 
-## Ann's module: QR and payee verification
+## Problem Statement
 
-`qr_verify.py` decodes a QR image with OpenCV, extracts `pn` (payee name) and
-`pa` (VPA) from `upi://pay` payloads, and combines those values with the
-merchant name and the tamper detector's optional score/reasons.
+UPI payment QR codes are widely used in shops, cafés, and public spaces. However, these codes can be replaced or altered, potentially redirecting payments to unintended recipients.
 
-OpenCV (`cv2`) must be available to decode image files. The module accepts
-tamper scores from 0 to 100. Example:
+Users may not have enough information or time to verify the recipient before approving a payment.
 
-```python
-from qr_verify import assess_qr_image
+ARGUS addresses this problem by analyzing QR codes, comparing available merchant information, and highlighting potential warning signs in a clear and understandable way.
 
-result = assess_qr_image(
-    "payment-qr.png",
-    merchant_name="Green Mart",  # manual input or OCR output
-    tamper_score=8,              # Devika module; None if unavailable
-    tamper_reasons=[],
-)
-```
+## Solution
 
-The stable result contract is:
+ARGUS allows users to scan or upload a payment QR code and review a risk assessment before paying.
 
-```json
-{
-  "verdict": "SAFE | SUSPICIOUS | DANGER",
-  "risk_score": 0,
-  "payee": {"name": "Green Mart", "vpa": "shop@okbank"},
-  "merchant_name": "Green Mart",
-  "reasons": [{"code": "NAME_MATCH", "message": "..."}],
-  "disclaimer": "..."
-}
-```
+The application:
+- Decodes supported UPI payment QR codes.
+- Extracts the payee name and UPI ID when available.
+- Compares payment details with the supplied merchant information.
+- Analyzes QR images for potential signs of tampering.
+- Checks registered merchant information when available.
+- Uses location information, with permission, to provide additional context.
+- Presents a risk verdict, score, and explanation of detected warning signs.
 
-`build_verdict(payee, merchant_name, tamper_score, tamper_reasons)` is the
-integration entry point when the frontend or another module already has a
-decoded payload. Verdict bands are SAFE below 20, SUSPICIOUS from 20 through
-69, and DANGER from 70 upward. Missing comparison evidence adds risk and
-cannot silently result in SAFE. These are explainable heuristics, not payment
-authentication or a guarantee of safety.
+ARGUS is a risk assessment tool. It does not guarantee that a payment is safe or independently authenticate every QR code.
 
-Run the module's independent checks with `python -m unittest test_qr_verify`.
+## Technology Stack
 
-## Model-input preparation
+- **Frontend:** React, JavaScript
+- **Backend:** Python, FastAPI
+- **QR Code Analysis:** UPI payload decoding and parsing
+- **Image Processing:** OpenCV
+- **Location Verification:** Browser Geolocation API and Haversine distance calculation
+- **Merchant Management:** Merchant records and registration
+- **Hotspot Map:** Leaflet.js and OpenStreetMap
+- **Support Chatbot:** Groq API
+- **Testing:** Pytest, frontend linting, and production build checks
 
-`risk_features.py` provides `extract_risk_features(payee, merchant_name,
-tamper_result)`. It returns numeric inputs and explicit missing indicators for
-the payee/name comparison, VPA, tamper score, and each raw tamper measurement.
-Unavailable values remain `None`; invalid, non-finite, or out-of-range values
-raise `ValueError` rather than being silently replaced. The name similarity
-and match flags use the same comparison thresholds as `build_verdict()`.
-This is feature preparation only: there is no trained model or ML prediction.
+## Workflow
 
-The detector preserves `tamper_score` and `tamper_reasons` and now also returns
-`side_imbalance`, `angle_deviation`, `edge_score`, `roughness_score`,
-`contour_irregularity`, `corner_abuse_score`, and `texture_difference`. Those
-measurement fields are `None` when unavailable; partial analyses retain any
-measurements that were calculated.
+1. **Upload or Scan:** The user provides a payment QR code image.
+2. **Extract Details:** ARGUS decodes the QR code and extracts available payment information.
+3. **Compare Information:** The application compares the payee details with the supplied merchant information.
+4. **Analyze the Image:** The system checks for potential visual signs of QR code tampering.
+5. **Verify Merchant Details:** When registered merchant information is available, the application can check the UPI ID and location.
+6. **Generate Assessment:** Available signals are combined to produce a verdict, risk score, and explanation.
+7. **Review Results:** The user can review the detected payee, merchant details, and potential warning signs.
+8. **Report Suspicious Activity:** Users can optionally submit a dangerous QR report for the hotspot map.
 
-## HTTP API for the React frontend
+## Features
 
-The FastAPI server exposes `POST /api/scan`. It accepts multipart form data
-with the QR image in `file` and the displayed shop name in `merchant_name`.
-The endpoint decodes the image once, then passes the decoded OpenCV image and
-QR boundary coordinates to Devika's `tamper_detector.analyze_tampering`.
-Its `tamper_score` and `tamper_reasons` are included in the combined verdict.
-If the detector cannot analyze the image, the response explains that and
-scores the missing signal as risk rather than claiming the image was checked.
+### QR Code Analysis
+- Scan or upload payment QR code images.
+- Decode supported UPI payment information.
+- Extract payee names and UPI IDs when available.
 
-```bash
-python3 -m pip install -r requirements.txt
-uvicorn main:app --reload
-```
+### Risk Assessment
+- Compare payee names with supplied merchant names.
+- Identify potential inconsistencies in payment information.
+- Analyze images for possible signs of tampering.
+- Display risk verdicts and scores with understandable explanations.
+- Clearly indicate when a check cannot be completed.
 
-The API runs at `http://localhost:8000`; its interactive documentation is at
-`http://localhost:8000/docs`. The local React origins `localhost:3000` and
-`localhost:5173` are allowed for development. Example frontend request:
+### Merchant Verification
+- Register and manage merchant information.
+- Compare QR payment details with registered merchant records.
+- Check location consistency when sufficient information is available.
 
-```javascript
-const form = new FormData();
-form.append("file", qrImageFile);
-form.append("merchant_name", shopName);
-const response = await fetch("http://localhost:8000/api/scan", {
-  method: "POST",
-  body: form,
-});
-const verdict = await response.json();
-```
+### Location Verification
+- Use GPS location with user permission.
+- Allow manual location selection when supported.
+- Handle denied or unavailable location information.
+- Consider GPS accuracy when assessing location consistency.
 
-## Scam Hotspot Map and support chat
+### Scam Hotspot Map
+- Display community-submitted dangerous QR reports.
+- Group reports by geographic proximity.
+- Show available report counts, dates, and risk details.
+- Label community reports as unverified.
 
-The **Scam Hotspot Map** page groups user-submitted `DANGER` scan reports by
-distance and displays them on Leaflet/OpenStreetMap. Yellow means one report,
-orange means two or three, and red means more than three reports in a group.
-The grouping radius defaults to 250 metres and can be set with
-`ARGUS_HOTSPOT_RADIUS_M` (25–10,000 metres). Reports and counts live only in
-the FastAPI process memory, so they reset when the server restarts and are not
-shared across multiple server workers. They are explicitly unverified; a high
-count does not establish that a QR or place is a scam. Users must explicitly
-choose to share browser location or click a point on the map. OpenStreetMap
-tiles require an internet connection.
+### Additional Features
+- Session-based recent scan history.
+- Website-based administrative management.
+- English and Malayalam interface support.
+- Support chatbot for questions about ARGUS and payment scams.
 
-For the support chat, install backend requirements (including `httpx`) and
-set your Groq key in the environment of the terminal that runs FastAPI:
+## Impact
 
-```bash
-export GROQ_API_KEY='your-groq-api-key'
-uvicorn main:app --reload
-```
+ARGUS helps users pause and review payment QR codes before authorizing transactions.
 
-Optionally set `GROQ_MODEL` to a model available to your Groq account. The key
-stays on the server and is never sent to the browser. Without the key, the
-chat UI displays a setup message; the rest of Argus still works.
+By highlighting differences in payment information and potential image tampering, the application helps users recognize warning signs that may otherwise go unnoticed.
+
+Merchant and location checks provide additional context for registered businesses, while the hotspot map helps users view locations associated with community-submitted reports.
+
+The system focuses on presenting understandable findings rather than relying on a risk score alone.
+
+## Future Scope
+
+- Develop and evaluate a machine-learning risk model using a carefully labeled dataset.
+- Improve OCR and merchant-name extraction across different scripts and image conditions.
+- Enhance and validate QR code tampering detection.
+- Introduce persistent storage and moderation for hotspot reports.
+- Strengthen merchant identity verification and authentication.
+- Improve location verification and GPS accuracy handling.
+- Conduct user testing to evaluate the usefulness of risk explanations.
+- Expand language support and accessibility.
+
+## Important Limitations
+
+- Successfully decoding a QR code does not guarantee that its recipient is trustworthy.
+- A matching merchant name does not independently prove payment safety.
+- Image analysis may produce false positives or fail to detect some alterations.
+- Merchant and location verification depend on the availability and reliability of the underlying information.
+- Community-submitted hotspot reports are unverified and should not be treated as confirmed scams.
+- A risk score is an indication of potential risk, not a guarantee.
+
+Users should independently verify the payment recipient and transaction details before authorizing a payment.
+
+## Team
+
+**Team VORTEX**
+
+Project: **ARGUS — QR Payment Security Assessment**
