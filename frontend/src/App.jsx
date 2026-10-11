@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { scanQR } from "./argusApi";
+import MerchantMode from "./MerchantMode";
 import "./App.css";
 
 const MAX_RECENT_SCANS = 5;
@@ -18,6 +19,8 @@ function App() {
   const [selectedHistoryId, setSelectedHistoryId] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeSection, setActiveSection] = useState("scan");
+  const [showMerchantMode, setShowMerchantMode] = useState(false);
+  const [location, setLocation] = useState({ status: "unavailable", position: null });
 
   const fileInput = useRef(null);
   const historyCounterRef = useRef(0);
@@ -195,7 +198,7 @@ function App() {
     setSelectedHistoryId(null);
 
     try {
-      const data = await scanQR(file, merchant.trim());
+      const data = await scanQR(file, merchant.trim(), location);
       setResult(data);
       setStage("assessment");
       historyCounterRef.current += 1;
@@ -254,11 +257,41 @@ function App() {
   function openSection(section) {
     setActiveSection(section);
     setDrawerOpen(false);
+    setShowMerchantMode(section === "merchant");
     if (section === "scan") setStage("scan");
+    if (section === "merchant") return;
     window.setTimeout(() => {
       const target = section === "history" ? historySectionRef.current : scanSectionRef.current;
       target?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 70);
+  }
+
+  function requestLocation() {
+    setError("");
+    if (!navigator.geolocation) {
+      setLocation({ status: "unavailable", position: null });
+      setError("Location is unavailable in this browser. You can still scan without a proximity check.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => setLocation({
+        status: "available",
+        position: { latitude: coords.latitude, longitude: coords.longitude, accuracy: coords.accuracy },
+      }),
+      (geoError) => {
+        const denied = geoError.code === geoError.PERMISSION_DENIED;
+        setLocation({ status: denied ? "denied" : "unavailable", position: null });
+        setError(denied
+          ? "The browser denied location access. Check macOS Location Services and this site's location permission, then try again."
+          : geoError.code === geoError.TIMEOUT
+            ? "The browser timed out while finding your location. Check your network and location services, then retry."
+            : `The browser could not determine a location${geoError.message ? ` (${geoError.message})` : ""}. Check macOS Location Services and this site's permission, then retry.`);
+      },
+      // Desktop Macs commonly determine location from Wi-Fi rather than GPS.
+      // Do not require a high-accuracy GPS fix; the browser reports uncertainty
+      // in coords.accuracy and the server accounts for it in the radius check.
+      { enableHighAccuracy: false, timeout: 30000, maximumAge: 60000 },
+    );
   }
 
   const verdictClass = result?.verdict ? result.verdict.toLowerCase() : "";
@@ -327,6 +360,13 @@ function App() {
             {recentScans.length > 0 && (
               <span className="history-count">{recentScans.length}</span>
             )}
+          </a>
+          <a
+            className={`nav-item ${activeSection === "merchant" ? "active" : ""}`}
+            href="#merchant-mode"
+            onClick={(event) => { event.preventDefault(); openSection("merchant"); }}
+          >
+            <span aria-hidden="true">⌂</span> Merchant Mode
           </a>
         </nav>
 
@@ -452,7 +492,9 @@ function App() {
             </div>
           </div>
 
-          {stage === "scan" ? (
+          {showMerchantMode ? (
+            <MerchantMode onBack={() => openSection("scan")} />
+          ) : stage === "scan" ? (
             <section className="scan-stage stage-enter" id="scan-stage" ref={scanSectionRef} aria-labelledby="scan-title">
               <div className="stage-intro">
                 <span className="stage-index">STEP 01</span>
@@ -543,6 +585,20 @@ function App() {
                     <span className="field-hint">Enter the shop name shown on the physical QR stand.</span>
                   </div>
 
+                  <div className="field-group location-permission-group">
+                    <label>SHOP PROXIMITY CHECK</label>
+                    <button className="secondary-button location-button" type="button" onClick={requestLocation}>
+                      {location.status === "available" ? "Refresh my location" : "Allow location for this scan"}
+                    </button>
+                    <span className="field-hint">
+                      {location.position
+                        ? `Location ready · GPS accuracy ±${Math.round(location.position.accuracy)} m`
+                        : location.status === "denied"
+                          ? "Permission denied · proximity cannot be checked"
+                          : "Optional · your browser will ask before sharing device coordinates"}
+                    </span>
+                  </div>
+
                   {error && <div className="error-message" role="alert">{error}</div>}
 
                   <button className="verify-button" type="button" onClick={verifyQR} disabled={loading}>
@@ -597,6 +653,21 @@ function App() {
                     <div className="identity-row"><span>Entered merchant</span><strong>{result.merchant_name || merchant}</strong></div>
                     <div className="identity-row"><span>QR payee name</span><strong>{result.payee?.name || "Unavailable"}</strong></div>
                     <div className="identity-row"><span>UPI ID</span><strong>{result.payee?.vpa || "Unavailable"}</strong></div>
+                  </div>
+
+                  <div className="identity-card location-result-card">
+                    <div className="identity-title">REGISTERED MERCHANT LOCATION CHECK</div>
+                    <div className="identity-row"><span>Verification status</span><strong>{result.location_verification?.status?.replaceAll("_", " ") || "Unavailable"}</strong></div>
+                    <div className="identity-row"><span>Device location status</span><strong>{result.location_verification?.device_location_status?.replaceAll("_", " ") || "Unavailable"}</strong></div>
+                    <div className="identity-row"><span>Location signal</span><strong>{result.location_verification?.location_message || "Unavailable"}</strong></div>
+                    <div className="identity-row"><span>Detected UPI ID</span><strong>{result.location_verification?.detected_upi_id || "Unavailable"}</strong></div>
+                    <div className="identity-row"><span>Matched shop</span><strong>{result.location_verification?.matched_merchant?.shop_name || "No registered merchant"}</strong></div>
+                    <div className="identity-row"><span>Matched merchant UPI</span><strong>{result.location_verification?.matched_merchant?.upi_id || "—"}</strong></div>
+                    <div className="identity-row"><span>Current location</span><strong>{formatCoordinates(result.location_verification?.current_location)}</strong></div>
+                    <div className="identity-row"><span>Registered location</span><strong>{formatCoordinates(result.location_verification?.registered_location)}</strong></div>
+                    <div className="identity-row"><span>Distance / radius</span><strong>{result.location_verification?.distance_m == null ? "Unavailable" : `${result.location_verification.distance_m} m / ${result.location_verification.radius_m} m`}</strong></div>
+                    <div className="identity-row"><span>GPS accuracy</span><strong>{result.location_verification?.accuracy_m == null ? "Unavailable" : `±${Math.round(result.location_verification.accuracy_m)} m`}</strong></div>
+                    <p className="location-result-message">{result.location_verification?.message || "Location verification was unavailable."}</p>
                   </div>
 
                   <div className="reasons-title">ASSESSMENT NOTES</div>
@@ -667,6 +738,11 @@ function App() {
       </main>
     </div>
   );
+}
+
+function formatCoordinates(location) {
+  if (!location) return "Unavailable";
+  return `${location.latitude.toFixed(5)}, ${location.longitude.toFixed(5)}`;
 }
 
 export default App;
