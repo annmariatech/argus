@@ -248,9 +248,12 @@ def analyze_tampering(image, qr_corners):
         ),
     }
 
+    # Texture can be unavailable when the crop touches the image edge. Keep
+    # that field explicitly missing while still using the other measurements.
     invalid_measurement = any(
         value is None or not np.isfinite(value)
-        for value in measurements.values()
+        for field, value in measurements.items()
+        if field != "texture_difference"
     )
     if invalid_measurement:
         return unavailable(
@@ -258,108 +261,53 @@ def analyze_tampering(image, qr_corners):
             measurements,
         )
 
-    texture_difference = texture_result["texture_difference"]
-
-    geometry_component = (
-        min(side_imbalance / 0.18, 1.0) * 4
-        + min(angle_deviation / 25.0, 1.0) * 4
-    )
-
-    irregularity_component = 0.0
-    if contour_irregularity > 1.35:
-        irregularity_component = 25.0
-
-    roughness_component = 0.0
-    if roughness_score > 0.85 and (contour_irregularity > 1.35 or corner_abuse_score > 0.60 or texture_difference > 45):
-        roughness_component = 18.0
-    elif roughness_score > 0.72 and (contour_irregularity > 1.35 or corner_abuse_score > 0.60 or texture_difference > 45):
-        roughness_component = 10.0
-
-    edge_component = 0.0
-    if edge_score > 0.25 and (contour_irregularity > 1.35 or corner_abuse_score > 0.60 or texture_difference > 45):
-        edge_component = 8.0
-
-    corner_component = 0.0
-    if corner_abuse_score > 0.65:
-        corner_component = 25.0
-    elif corner_abuse_score > 0.50:
-        corner_component = 15.0
-    elif corner_abuse_score > 0.40:
-        corner_component = 8.0
-
-    texture_component = 0.0
-    if texture_difference > 60:
-        texture_component = 18.0 + min((texture_difference - 60.0) / 30.0, 1.0) * 18.0
-    elif texture_difference > 45:
-        texture_component = 12.0
-
-    if (
-        texture_difference < 20
-        and corner_abuse_score < 0.40
-        and edge_score < 0.12
-        and roughness_score < 0.75
+    texture_difference = measurements["texture_difference"]
+    if texture_difference is not None and (
+        isinstance(texture_difference, bool)
+        or not isinstance(texture_difference, (int, float))
+        or not np.isfinite(texture_difference)
     ):
-        score = 5
-        reasons = [
-            "The QR border shows mostly geometric perspective distortion without torn edges, strong corner damage, or a texture mismatch.",
-            "This is treated as mild camera/angle distortion rather than tampering."
-        ]
-        reasons.append(
-            f"Measurements: edge={edge_score:.3f}, roughness={roughness_score:.3f}, "
-            f"contour_irregularity={contour_irregularity:.3f}, corner_abuse={corner_abuse_score:.3f}, "
-            f"texture_difference={texture_difference:.2f}, side_imbalance={side_imbalance:.3f}, "
-            f"angle_deviation={angle_deviation:.1f} degrees."
-        )
-        return {
-            "tamper_score": int(score),
-            "tamper_reasons": reasons,
-            **measurements,
-        }
+        measurements["texture_difference"] = None
+        texture_difference = None
 
-    score = round(min(
-        100,
-        5 + geometry_component + irregularity_component + roughness_component + edge_component + corner_component + texture_component
-    ))
+    # Perspective, QR finder patterns, and the normal contrast between QR
+    # modules and paper can all produce high geometry/edge/texture readings.
+    # Treat those as supporting measurements; only score corroborated border
+    # roughness plus edge activity as primary visual evidence.
+    border_damage = roughness_score > 0.85 and edge_score > 0.30
+    score = 5
+    if border_damage:
+        score += 35
+        score += round(min((roughness_score - 0.85) * 40, 10))
+        score += round(min((edge_score - 0.30) * 30, 10))
+    if border_damage and corner_abuse_score > 0.65:
+        score += 20
+    if border_damage and contour_irregularity > 1.35:
+        score += 15
+    if border_damage and texture_difference is not None and texture_difference > 60:
+        score += 10
+    score = min(score, 100)
 
     reasons = []
 
-    if side_imbalance > 0.12:
-        reasons.append("Opposite QR boundary sides differ noticeably.")
-
-    if angle_deviation > 15:
-        reasons.append("QR boundary has uneven or distorted corner angles.")
-
-    if contour_irregularity > 1.35:
-        reasons.append("QR boundary contour is more irregular than a clean printed square.")
-
-    if roughness_score > 0.70:
-        reasons.append("QR boundary shows ragged or torn-edge characteristics.")
-
-    if edge_score > 0.20:
-        reasons.append("There is strong edge activity near the QR border.")
-
-    if corner_abuse_score > 0.45:
-        reasons.append("The QR corners show abnormal local edge activity consistent with wear or tampering.")
-
-    if texture_difference > 45:
+    if border_damage:
+        reasons.append("QR border roughness and edge activity are both elevated; this is a possible alteration signal.")
+        if corner_abuse_score > 0.65:
+            reasons.append("Elevated corner activity supports the border damage signal.")
+        if contour_irregularity > 1.35:
+            reasons.append("The irregular boundary shape supports the border damage signal.")
+        if texture_difference is not None and texture_difference > 60:
+            reasons.append("Texture difference supports the border damage signal.")
+    else:
         reasons.append(
-            "Large texture mismatch between the QR region and its surrounding area."
-        )
-
-    if not reasons:
-        reasons.append(
-            "No strong QR-boundary, ragged-edge, or texture mismatch signals were found."
+            "No corroborated QR-border damage signal was found. Shape, edge, corner, and texture readings alone can result from camera angle, printing, or normal QR patterns."
         )
 
     reasons.append(
         f"Measurements: edge={edge_score:.3f}, roughness={roughness_score:.3f}, "
         f"contour_irregularity={contour_irregularity:.3f}, corner_abuse={corner_abuse_score:.3f}, "
-        f"texture_difference={texture_difference:.2f}, side_imbalance={side_imbalance:.3f}, "
+        f"texture_difference={texture_difference if texture_difference is not None else 'unavailable'}, side_imbalance={side_imbalance:.3f}, "
         f"angle_deviation={angle_deviation:.1f} degrees."
-    )
-
-    reasons.append(
-        "The score rises when the QR sticker shows torn edges, corner wear, or a border that is irregular enough to suggest tampering rather than a mild perspective tilt alone."
     )
 
     return {

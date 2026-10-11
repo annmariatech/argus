@@ -4,7 +4,7 @@ from unittest.mock import patch
 import numpy as np
 
 from qr_verify import Payee, build_verdict
-from risk_features import TAMPER_MEASUREMENT_FIELDS, extract_risk_features
+from risk_features import TAMPER_MEASUREMENT_FIELDS, compare_payee_name, extract_risk_features
 from tamper_detector import analyze_tampering
 
 
@@ -22,6 +22,15 @@ COMPLETE_TAMPER_RESULT = {
 
 
 class RiskFeatureTests(unittest.TestCase):
+    def test_name_comparison_is_word_order_independent(self):
+        comparison = compare_payee_name("Maria Ann", "Ann Maria")
+        self.assertEqual(comparison["name_match"], 1)
+
+    def test_name_comparison_preserves_malayalam_letters(self):
+        comparison = compare_payee_name("ഗ്രീൻ മാർട്ട്", "ഗ്രീൻ മാർട്ട്")
+        self.assertEqual(comparison["name_match"], 1)
+        self.assertEqual(comparison["payee_name_missing"], 0)
+
     def test_normal_scan_has_consistent_numeric_features(self):
         features = extract_risk_features(
             Payee("Green Mart", "shop@okbank"), "Green Mart", COMPLETE_TAMPER_RESULT
@@ -80,6 +89,36 @@ class RiskFeatureTests(unittest.TestCase):
         self.assertIsNone(unavailable["tamper_score"])
         self.assertTrue(all(field in unavailable for field in TAMPER_MEASUREMENT_FIELDS))
         self.assertTrue(all(unavailable[field] is None for field in TAMPER_MEASUREMENT_FIELDS))
+
+    def test_tamper_detector_does_not_flag_texture_difference_alone(self):
+        image = np.zeros((100, 100, 3), dtype=np.uint8)
+        corners = np.array([[[10, 10], [90, 10], [90, 90], [10, 90]]], dtype=np.float32)
+        with (
+            patch("tamper_detector.detect_boundary_edges", return_value=0.15),
+            patch("tamper_detector.estimate_boundary_roughness", return_value=0.5),
+            patch("tamper_detector.estimate_contour_irregularity", return_value=1.5),
+            patch("tamper_detector.detect_corner_abuse", return_value=0.9),
+            patch("tamper_detector.compare_boundary_texture", return_value={"texture_difference": 90.0}),
+        ):
+            result = analyze_tampering(image, corners)
+
+        self.assertEqual(result["tamper_score"], 5)
+        self.assertNotIn("possible alteration signal", " ".join(result["tamper_reasons"]))
+
+    def test_tamper_detector_keeps_analysis_available_when_texture_is_unavailable(self):
+        image = np.zeros((100, 100, 3), dtype=np.uint8)
+        corners = np.array([[[10, 10], [90, 10], [90, 90], [10, 90]]], dtype=np.float32)
+        with (
+            patch("tamper_detector.detect_boundary_edges", return_value=0.15),
+            patch("tamper_detector.estimate_boundary_roughness", return_value=0.5),
+            patch("tamper_detector.estimate_contour_irregularity", return_value=1.1),
+            patch("tamper_detector.detect_corner_abuse", return_value=0.2),
+            patch("tamper_detector.compare_boundary_texture", return_value=None),
+        ):
+            result = analyze_tampering(image, corners)
+
+        self.assertIsNotNone(result["tamper_score"])
+        self.assertIsNone(result["texture_difference"])
 
     def test_invalid_measurement_values_are_rejected(self):
         invalid = {**COMPLETE_TAMPER_RESULT, "edge_score": float("nan")}

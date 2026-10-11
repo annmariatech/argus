@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from difflib import SequenceMatcher
 import math
-import re
+import unicodedata
 from typing import Any
 
 
@@ -28,11 +28,17 @@ def compare_payee_name(payee_name: str | None, merchant_name: str | None) -> dic
     """Return the normalized name comparison used by both features and verdict."""
     payee_normalized = _normalize_name(payee_name)
     merchant_normalized = _normalize_name(merchant_name)
-    similarity = (
-        SequenceMatcher(None, payee_normalized, merchant_normalized).ratio()
-        if payee_normalized and merchant_normalized
-        else None
-    )
+    similarity = None
+    if payee_normalized and merchant_normalized:
+        # Compare both the written form and sorted tokens: merchant names often
+        # reverse legal/shop-name order ("Maria Ann" vs "Ann Maria").
+        written_similarity = SequenceMatcher(None, payee_normalized, merchant_normalized).ratio()
+        token_similarity = SequenceMatcher(
+            None,
+            " ".join(sorted(payee_normalized.split())),
+            " ".join(sorted(merchant_normalized.split())),
+        ).ratio()
+        similarity = max(written_similarity, token_similarity)
 
     return {
         "payee_name_similarity": similarity,
@@ -112,4 +118,10 @@ def _numeric_value(
 
 
 def _normalize_name(value: str | None) -> str:
-    return re.sub(r"[^a-z0-9]+", " ", value.casefold()).strip() if value else ""
+    if not value:
+        return ""
+    normalized = unicodedata.normalize("NFKC", value).casefold()
+    # Preserve letters and digits from all scripts (including Malayalam),
+    # using Unicode categories instead of an ASCII-only character class.
+    chars = [char if unicodedata.category(char)[0] in {"L", "N"} else " " for char in normalized]
+    return " ".join("".join(chars).split())
